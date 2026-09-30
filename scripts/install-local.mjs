@@ -36,7 +36,8 @@ writeFileSync(
     'Icon=ritim',
     'Terminal=false',
     'Categories=Utility;Office;',
-    'StartupWMClass=Ritim',
+    // Matches the app id Electron derives from desktopName ("ritim.desktop").
+    'StartupWMClass=ritim',
     ''
   ].join('\n')
 )

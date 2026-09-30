@@ -16,12 +16,14 @@ linux:
   icon: resources/icons
   executableName: ritim
   synopsis: Weekly routine planner with reminders
-  desktop:
-    entry:
-      StartupWMClass: Ritim
+  # Required for .deb packages; a GitHub noreply address keeps personal email out of the package.
+  maintainer: Emre <emreygc7@users.noreply.github.com>
+  syncDesktopName: true
 deb:
   depends: [libnotify4]
 publish:
   provider: github
   owner: emreygc7
   repo: ritim
+  # Publish right away: the in-app update check reads releases/latest, which ignores drafts.
+  releaseType: release

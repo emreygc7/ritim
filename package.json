@@ -35,6 +35,7 @@
     "esbuild@0.28.2": true
   },
   "productName": "Ritim",
+  "desktopName": "ritim.desktop",
   "engines": {
     "node": ">=22"
   }
