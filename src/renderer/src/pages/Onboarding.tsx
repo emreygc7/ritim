@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { sampleData } from '@shared/sample'
+import logo from '../assets/logo.png'
 import { useStore } from '../store'
 
 export function Onboarding() {
@@ -10,7 +11,7 @@ export function Onboarding() {
   return (
     <div className="onboarding">
       <div className="onboarding-card">
-        <span className="brand-mark big" aria-hidden="true" />
+        <img className="brand-mark big" src={logo} alt="" aria-hidden="true" />
         <h1>{t('onboard.title')}</h1>
         <p>{t('onboard.body')}</p>
         <div className="onboarding-actions">

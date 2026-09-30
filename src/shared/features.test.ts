@@ -54,6 +54,17 @@ describe('day plans', () => {
   })
 })
 
+describe('markdown folder', () => {
+  it('accepts absolute Linux, macOS and Windows paths only', () => {
+    const dir = (markdownDir: string): string | null => normalizeData({ settings: { markdownDir } }, 'en').settings.markdownDir
+    expect(dir('/home/me/vault/Ritim')).toBe('/home/me/vault/Ritim')
+    expect(dir('C:\\Users\\me\\Vault')).toBe('C:\\Users\\me\\Vault')
+    expect(dir('D:/Notes')).toBe('D:/Notes')
+    expect(dir('\\\\server\\share')).toBe('\\\\server\\share')
+    expect(dir('relative/path')).toBeNull()
+  })
+})
+
 describe('reminders for marked blocks', () => {
   it('stops reminding once a block is marked', () => {
     const d = base({ logs: { [MON]: { deep: { status: 'skipped', at: '' } } } })

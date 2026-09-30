@@ -191,7 +191,9 @@ export function normalizeData(raw: unknown, lang: Lang): AppData {
         actions: s.phone.actions !== false
       }
     }
-    d.markdownDir = typeof s.markdownDir === 'string' && s.markdownDir.startsWith('/') ? s.markdownDir : null
+    // Absolute paths only: "/home/..." on Linux/macOS, "C:\\..." or "\\\\server\\share" on Windows.
+    d.markdownDir =
+      typeof s.markdownDir === 'string' && /^(\/|[a-zA-Z]:[\\/]|\\\\)/.test(s.markdownDir) ? s.markdownDir : null
     const minutes = (v: unknown, fallback: number): number => {
       const n = num(v)
       return n !== null && n >= 1 && n <= 180 ? Math.round(n) : fallback

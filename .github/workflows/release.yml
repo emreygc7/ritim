@@ -1,8 +1,8 @@
 name: Release
 
-# Push a version tag (e.g. `git tag v0.2.0 && git push --tags`) to build the
-# Linux packages and attach them to a GitHub release. Ritim's update check
-# reads the latest release, so users are told about the new version.
+# Push a version tag (e.g. `git tag v0.3.0 && git push --tags`) to build Ritim
+# for Linux, Windows and macOS and attach the packages to a GitHub release.
+# Ritim's update check reads the latest release, so users hear about it.
 on:
   push:
     tags: ['v*']
@@ -11,18 +11,44 @@ permissions:
   contents: write
 
 jobs:
-  linux:
+  # Create the release once, so the parallel builds below don't race to create it.
+  release:
     runs-on: ubuntu-latest
+    steps:
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Ritim $TAG" --generate-notes
+
+  build:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: --linux
+          - os: windows-latest
+            platform: --win
+          - os: macos-latest
+            platform: --mac
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      - name: Install rpm tooling
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - run: npx electron-builder --linux AppImage deb --publish always
+      - run: npx electron-builder ${{ matrix.platform }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

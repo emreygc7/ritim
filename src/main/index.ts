@@ -11,7 +11,7 @@ import { normalizeData } from '@shared/normalize'
 import { nowState, occurrencesOn } from '@shared/schedule'
 import { addDays, atTime, clockOf, formatDuration, isValidHM, toDateKey } from '@shared/time'
 import type { AppData, Status } from '@shared/types'
-import { setAutostart } from './autostart'
+import { canAutostart, setAutostart } from './autostart'
 import { pushToPhone } from './push'
 import { FocusTimer } from './focus'
 import { MarkdownExporter } from './markdownExport'
@@ -22,6 +22,8 @@ import { isMuted, Scheduler } from './scheduler'
 import { dataPath, loadData, saveData } from './store'
 
 app.setName('Ritim')
+// Windows only shows notifications for apps with an AppUserModelID matching the installer's.
+if (process.platform === 'win32') app.setAppUserModelId('app.ritim.desktop')
 // Lets tests, demos and screenshots run against a separate data directory.
 if (process.env.RITIM_USER_DATA) app.setPath('userData', process.env.RITIM_USER_DATA)
 
@@ -52,7 +54,12 @@ const appIcon = (): string => resource('icons', '256x256.png')
 
 function applySettings(prev: AppData | null): void {
   nativeTheme.themeSource = data.settings.theme
-  if (!prev || prev.settings.autostart !== data.settings.autostart) {
+  // The login entry is shared by every profile on this machine: at startup only refresh it
+  // (never remove it), change it only when the user toggles the setting, and leave it alone
+  // for separate test/demo profiles.
+  const toggled = prev !== null && prev.settings.autostart !== data.settings.autostart
+  const refresh = prev === null && data.settings.autostart
+  if (!process.env.RITIM_USER_DATA && (toggled || refresh)) {
     try {
       setAutostart(data.settings.autostart)
     } catch (err) {
@@ -217,7 +224,10 @@ function refreshTray(): void {
 }
 
 function createTray(): void {
-  const icon = nativeImage.createFromPath(resource('icons', 'tray.png'))
+  let icon = nativeImage.createFromPath(resource('icons', 'tray.png'))
+  // The macOS menu bar and the Windows tray expect small icons.
+  if (process.platform === 'darwin') icon = icon.resize({ width: 18, height: 18 })
+  if (process.platform === 'win32') icon = icon.resize({ width: 32, height: 32 })
   tray = new Tray(icon)
   tray.on('click', () => showWindow('today'))
   refreshTray()
@@ -227,7 +237,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.getInitial, () => ({
     data,
     dataPath: dataPath(),
-    canAutostart: app.isPackaged || !!process.env.APPIMAGE,
+    canAutostart: canAutostart(),
     clockOffsetMs
   }))
 
@@ -385,6 +395,11 @@ async function captureScreenshots(dir: string): Promise<void> {
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
+  // macOS: clicking the Dock icon reopens the window.
+  app.on('activate', () => {
+    if (app.isReady()) showWindow()
+  })
+
   app.on('second-instance', () => {
     if (app.isReady()) showWindow()
   })

@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="resources/icons/128x128.png" width="96" alt="Ritim icon" />
+  <img src="resources/icons/256x256.png" width="128" alt="Ritim icon" />
 </p>
 
 <h1 align="center">Ritim</h1>
 
 <p align="center">
-  A weekly routine planner for the Linux desktop.<br />
+  A weekly routine planner for Linux, Windows and macOS.<br />
   Plan your week once, get reminded as each block starts and ends, and see how much of the plan you actually did.
 </p>
 
@@ -62,20 +62,78 @@
 
 ## Installation
 
-Ritim runs on Linux desktops and is tested on Ubuntu 26.04 with GNOME. Building it requires Node.js 22 or newer.
+Download the package for your system from the [latest release](https://github.com/emreygc7/ritim/releases/latest).
+
+Ritim is developed and tested on Ubuntu 26.04 with GNOME. The Windows and macOS builds are produced by the same code but have not been tested on real machines yet; please [open an issue](https://github.com/emreygc7/ritim/issues) if something doesn't work.
+
+### Windows
+
+1. Download `Ritim-Setup-<version>.exe` and run it. Ritim installs for your user, no admin rights needed.
+2. The installer isn't code-signed, so Windows SmartScreen may say "Windows protected your PC". Click **More info**, then **Run anyway**.
+
+To uninstall, use **Settings → Apps → Installed apps → Ritim**.
+
+### macOS
+
+1. Download the `.dmg` for your Mac: `arm64` for Apple Silicon (M1 and later), `x64` for Intel.
+2. Open it and drag Ritim to **Applications**.
+3. Ritim isn't notarized by Apple, so the first launch is blocked. Open **System Settings → Privacy & Security**, scroll down and click **Open Anyway**.
+
+If macOS says the app "is damaged", run this once in Terminal:
+
+```bash
+xattr -cr /Applications/Ritim.app
+```
+
+### Linux
+
+**Ubuntu, Debian, Linux Mint, Pop!_OS (.deb)**
+
+```bash
+sudo apt install ./ritim_*_amd64.deb
+```
+
+To remove it: `sudo apt remove ritim`.
+
+**Fedora, openSUSE (.rpm)**
+
+```bash
+sudo dnf install ./ritim-*.x86_64.rpm      # Fedora
+sudo zypper install ./ritim-*.x86_64.rpm   # openSUSE
+```
+
+To remove it: `sudo dnf remove ritim` or `sudo zypper remove ritim`.
+
+**Arch Linux and other distributions (AppImage)**
+
+```bash
+chmod +x Ritim-*.AppImage
+./Ritim-*.AppImage
+```
+
+AppImages need FUSE 2:
+
+| Distribution | Package |
+|---|---|
+| Ubuntu 24.04 and later | `sudo apt install libfuse2t64` |
+| Debian, older Ubuntu | `sudo apt install libfuse2` |
+| Fedora | `sudo dnf install fuse-libs` |
+| Arch Linux | `sudo pacman -S fuse2` |
+
+**Tray icon on GNOME:** Ubuntu includes the needed extension. On Fedora, Arch and other GNOME setups, install the [AppIndicator and KStatusNotifierItem Support](https://extensions.gnome.org/extension/615/appindicator-support/) extension. KDE Plasma, Cinnamon, XFCE and MATE show the tray icon out of the box.
+
+### From source
+
+Requires Node.js 22 or newer.
 
 ```bash
 git clone https://github.com/emreygc7/ritim.git
 cd ritim
 npm install
-npm run install:local
+npm run install:local   # Linux: installs for your user, no sudo
 ```
 
-This builds the app and installs it for your user, without sudo. Ritim then appears in your app launcher. To remove it, delete `~/.local/share/ritim` and `~/.local/share/applications/ritim.desktop`.
-
-To build installable packages instead, run `npm run dist`. The AppImage and .deb files are written to `dist/`.
-
-On GNOME, the tray icon requires the AppIndicator extension. Ubuntu includes it by default.
+On Windows and macOS, run `npm run dist:win` or `npm run dist:mac` and use the installer from `dist/`. To remove a Linux source install, delete `~/.local/share/ritim` and `~/.local/share/applications/ritim.desktop`.
 
 ## Getting started
 
@@ -101,11 +159,19 @@ Open **Settings → Markdown export** and choose a folder, for example a `Ritim`
 
 ## Updates
 
-Ritim checks [GitHub Releases](https://github.com/emreygc7/ritim/releases) once a day and lets you know when a new version is out. You can turn this off in Settings.
+Ritim checks [GitHub Releases](https://github.com/emreygc7/ritim/releases) once a day and lets you know when a new version is out. Download the new package and install it the same way; your data is kept. You can turn the check off in Settings.
 
 ## Your data
 
-Everything is stored locally in `~/.config/Ritim/data.json`. Use **Settings → Export** to back it up or move it to another computer. Nothing leaves your computer unless you turn on phone notifications, apart from the daily update check, which only asks GitHub for the latest version number.
+Everything is stored locally in one file:
+
+| System | Location |
+|---|---|
+| Linux | `~/.config/Ritim/data.json` |
+| Windows | `%APPDATA%\Ritim\data.json` |
+| macOS | `~/Library/Application Support/Ritim/data.json` |
+
+Use **Settings → Export** to back it up or move it to another computer. Nothing leaves your computer unless you turn on phone notifications, apart from the daily update check, which only asks GitHub for the latest version number.
 
 ## Development
 

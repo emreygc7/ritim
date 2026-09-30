@@ -1,4 +1,5 @@
 import type { Page } from '@shared/api'
+import logo from './assets/logo.png'
 import { Icon, type IconName } from './components/Icon'
 import { Onboarding } from './pages/Onboarding'
 import { SettingsPage } from './pages/Settings'
@@ -24,7 +25,7 @@ export function App() {
     <div className="shell">
       <nav className="sidebar" aria-label="Main">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true" />
+          <img className="brand-mark" src={logo} alt="" aria-hidden="true" />
           {t('appName')}
         </div>
         {NAV.map((n) => (

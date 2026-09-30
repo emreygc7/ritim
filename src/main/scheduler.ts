@@ -67,7 +67,9 @@ export class Scheduler {
    */
   notify(title: string, body: string, phoneOpts: { privateTitle: string; toPhone: boolean }): void {
     const data = this.opts.getData()
-    const n = new Notification({ title, body, icon: this.opts.icon, silent: true, urgency: 'normal' })
+    // On Linux we play the sound ourselves (not every notification server does); elsewhere the OS does.
+    const linux = process.platform === 'linux'
+    const n = new Notification({ title, body, icon: this.opts.icon, silent: linux || !data.settings.sound, urgency: 'normal' })
     const release = (): void => void this.live.delete(n)
     this.live.add(n)
     n.on('click', () => {
@@ -77,7 +79,7 @@ export class Scheduler {
     n.on('close', release)
     setTimeout(release, NOTIFICATION_TTL_MS)
     n.show()
-    if (data.settings.sound) playSound()
+    if (linux && data.settings.sound) playSound()
     const phone = data.settings.phone
     if (phoneOpts.toPhone && phone.enabled && phone.topic) {
       const t = translator(data.settings.lang)

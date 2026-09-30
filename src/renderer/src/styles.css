@@ -119,27 +119,14 @@ h2 {
   padding: 4px 10px 18px;
 }
 .brand-mark {
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  background: conic-gradient(from 200deg, #4a3aa7, #2a78d6, #1baf7a, #eda100, #eb6834, #4a3aa7);
-  position: relative;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
   flex: none;
 }
-.brand-mark::after {
-  content: '';
-  position: absolute;
-  inset: 6px;
-  border-radius: 50%;
-  background: var(--surface);
-}
 .brand-mark.big {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-}
-.brand-mark.big::after {
-  inset: 15px;
+  width: 112px;
+  height: 112px;
 }
 .nav-item {
   display: flex;
