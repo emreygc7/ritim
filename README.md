@@ -51,7 +51,7 @@
 Ritim runs on Linux desktops and is tested on Ubuntu 26.04 with GNOME. Building it requires Node.js 22 or newer.
 
 ```bash
-git clone https://github.com/<your-username>/ritim.git
+git clone https://github.com/emreygc7/ritim.git
 cd ritim
 npm install
 npm run install:local
