@@ -1,0 +1,28 @@
+name: Release
+
+# Push a version tag (e.g. `git tag v0.2.0 && git push --tags`) to build the
+# Linux packages and attach them to a GitHub release. Ritim's update check
+# reads the latest release, so users are told about the new version.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npx electron-builder --linux AppImage deb --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

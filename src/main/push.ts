@@ -2,6 +2,16 @@ import type { PhoneSettings } from '@shared/types'
 
 const base = (cfg: PhoneSettings): string => cfg.server.replace(/\/+$/, '')
 
+/** An ntfy "http" action button: tapping it makes the phone send this request. */
+export interface PhoneAction {
+  action: 'http'
+  label: string
+  url: string
+  method: 'POST'
+  body: string
+  clear: boolean
+}
+
 async function check(res: Response): Promise<void> {
   if (res.ok) return
   if (res.status === 429) throw new Error('ntfy rate limit reached (429); will retry later')
@@ -18,7 +28,7 @@ export async function pushToPhone(
   cfg: PhoneSettings,
   title: string,
   message: string,
-  opts: { at?: number; sequenceId?: string } = {}
+  opts: { at?: number; sequenceId?: string; actions?: PhoneAction[] } = {}
 ): Promise<void> {
   if (!cfg.topic) throw new Error('No topic configured')
   const res = await fetch(base(cfg) + '/', {
@@ -31,7 +41,8 @@ export async function pushToPhone(
       tags: ['alarm_clock'],
       // A unix timestamp: ntfy's JSON API ignores duration strings like "2h".
       ...(opts.at ? { delay: String(Math.floor(opts.at / 1000)) } : {}),
-      ...(opts.sequenceId ? { sequence_id: opts.sequenceId } : {})
+      ...(opts.sequenceId ? { sequence_id: opts.sequenceId } : {}),
+      ...(opts.actions?.length ? { actions: opts.actions } : {})
     }),
     signal: AbortSignal.timeout(10_000)
   })

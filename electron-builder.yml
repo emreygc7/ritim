@@ -21,3 +21,7 @@ linux:
       StartupWMClass: Ritim
 deb:
   depends: [libnotify4]
+publish:
+  provider: github
+  owner: emreygc7
+  repo: ritim

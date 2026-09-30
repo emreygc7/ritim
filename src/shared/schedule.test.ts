@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { newTopic, normalizeData } from './normalize'
-import { dueReminders, findOverlaps, nowState, occurrencesOn, unmarkedToday } from './schedule'
+import { checklistOn, dueChecklist, dueReminders, findOverlaps, nowState, occurrencesOn, uncheckedOn, unmarkedToday } from './schedule'
 import { streak, dayStat, rangeStats } from './stats'
 import { addDays, atTime, durationMinutes, isoWeekday, parseHM, startOfWeek } from './time'
 import type { AppData, Block, Weekday } from './types'
@@ -113,6 +113,49 @@ describe('reminders', () => {
   })
 })
 
+describe('checklist', () => {
+  const withChecklist = (extra: Partial<AppData> = {}): AppData =>
+    data([], {
+      checklist: [
+        { id: 'late', text: 'Late', days: [1, 2, 3, 4, 5, 6, 7], time: '21:00' },
+        { id: 'free', text: 'Anytime', days: [1, 2, 3, 4, 5, 6, 7], time: null },
+        { id: 'early', text: 'Early', days: [1], time: '08:00' }
+      ],
+      ...extra
+    })
+
+  it('lists the day\'s items with timed ones first, by time', () => {
+    expect(checklistOn(withChecklist(), MON).map((c) => c.id)).toEqual(['early', 'late', 'free'])
+    expect(checklistOn(withChecklist(), addDays(MON, 1)).map((c) => c.id)).toEqual(['late', 'free'])
+  })
+
+  it('reminds only for timed items that are not ticked off', () => {
+    const d = withChecklist({ checks: { [MON]: ['early'] } })
+    const due = dueChecklist(d, atTime(MON, '00:00'), atTime(addDays(MON, 1), '23:59'))
+    expect(due.map((c) => c.id)).toEqual([`${MON}:check:late`, `${addDays(MON, 1)}:check:late`])
+  })
+
+  it('reports unchecked items for the review', () => {
+    const d = withChecklist({ checks: { [MON]: ['free'] } })
+    expect(uncheckedOn(d, MON).map((c) => c.id)).toEqual(['early', 'late'])
+  })
+
+  it('validates checklist data', () => {
+    const d = normalizeData(
+      {
+        checklist: [
+          { id: 'a', text: 'ok', days: [1, 1, 8], time: '25:00' },
+          { id: 'b', text: 'no days', days: [] }
+        ],
+        checks: { [MON]: ['a', 'a', 3], nonsense: ['a'] }
+      },
+      'en'
+    )
+    expect(d.checklist).toEqual([{ id: 'a', text: 'ok', days: [1], time: null }])
+    expect(d.checks).toEqual({ [MON]: ['a'] })
+  })
+})
+
 describe('overlaps', () => {
   it('detects overlaps on shared days, including overnight blocks', () => {
     const blocks = data([
@@ -214,8 +257,8 @@ describe('normalizeData', () => {
       { settings: { phone: { enabled: true, server: 'https://ntfy.example.com/', topic: 'ritim-abc', privateMode: true } } },
       'en'
     )
-    expect(ok.settings.phone).toEqual({ enabled: true, server: 'https://ntfy.example.com', topic: 'ritim-abc', privateMode: true })
+    expect(ok.settings.phone).toEqual({ enabled: true, server: 'https://ntfy.example.com', topic: 'ritim-abc', privateMode: true, actions: true })
     const bad = normalizeData({ settings: { phone: { enabled: true, server: 'javascript:x', topic: 'a b/c' } } }, 'en')
-    expect(bad.settings.phone).toEqual({ enabled: true, server: 'https://ntfy.sh', topic: '', privateMode: false })
+    expect(bad.settings.phone).toEqual({ enabled: true, server: 'https://ntfy.sh', topic: '', privateMode: false, actions: true })
   })
 })

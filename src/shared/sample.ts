@@ -1,5 +1,5 @@
 import { emptyData } from './normalize'
-import type { AppData, Block, Category, Lang, Weekday } from './types'
+import type { AppData, Block, Category, ChecklistItem, Lang, Plan, Weekday } from './types'
 
 const WEEKDAYS: Weekday[] = [1, 2, 3, 4, 5]
 const EVERY_DAY: Weekday[] = [1, 2, 3, 4, 5, 6, 7]
@@ -47,5 +47,26 @@ export function sampleData(lang: Lang): AppData {
     b(L('Uyku', 'Sleep'), 'sleep', '23:30', '07:30', EVERY_DAY)
   ]
 
-  return { ...emptyData(lang), onboarded: true, categories, blocks }
+  const checklist: ChecklistItem[] = [
+    { id: 'sample-check-1', text: L('Yarının 3 önceliğini yaz', "Write down tomorrow's 3 priorities"), days: WEEKDAYS, time: '16:00' },
+    { id: 'sample-check-2', text: L('Gün içinde 2 litre su iç', 'Drink 2 liters of water'), days: EVERY_DAY, time: null },
+    { id: 'sample-check-3', text: L('10 sayfa kitap oku', 'Read 10 pages'), days: EVERY_DAY, time: '22:30' }
+  ]
+
+  // An alternative "light day" for sick or low-energy days, applied per date from the Today page.
+  const plans: Plan[] = [{ id: 'sample-light', name: L('Hafif gün', 'Light day') }]
+  const light = (title: string, categoryId: string, start: string, end: string): Block => ({
+    ...b(title, categoryId, start, end, []),
+    planId: 'sample-light'
+  })
+  blocks.push(
+    light(L('Günü planla', 'Plan the day'), 'admin', '09:00', '09:15'),
+    light(L('Tek odak bloğu', 'One focus block'), 'focus', '09:30', '11:00'),
+    light(L('Öğrenme (kısa)', 'Learning (short)'), 'learn', '11:15', '12:00'),
+    light(L('Yürüyüş', 'Walk'), 'health', '17:00', '17:30'),
+    light(L('Kişisel zaman', 'Personal time'), 'life', '19:00', '23:00'),
+    light(L('Uyku', 'Sleep'), 'sleep', '23:30', '07:30')
+  )
+
+  return { ...emptyData(lang), onboarded: true, categories, blocks, checklist, plans }
 }

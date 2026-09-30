@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { rangeStats, streak, STREAK_THRESHOLD } from '@shared/stats'
 import { addDays, formatDuration, fromDateKey, isoWeekday, startOfWeek, toDateKey } from '@shared/time'
+import { Heatmap } from '../components/Heatmap'
 import { Icon } from '../components/Icon'
 import { useStore } from '../store'
 
@@ -154,6 +155,7 @@ export function StatsPage() {
           </section>
         </>
       )}
+      <Heatmap />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { addDays, atTime, isoWeekday, parseHM, toDateKey } from './time'
-import type { AppData, Block, DueReminder, OneOff, Occurrence, Reminders } from './types'
+import type { AppData, Block, ChecklistItem, DueChecklist, DueReminder, OneOff, Occurrence, Reminders } from './types'
 
 function toOccurrence(
   data: AppData,
@@ -24,13 +24,26 @@ function toOccurrence(
   }
 }
 
+/** The alternative plan used on a date, if any. */
+export function planFor(data: AppData, dateKey: string): string | null {
+  const id = data.dayPlans[dateKey]
+  return id && data.plans.some((p) => p.id === id) ? id : null
+}
+
+/** Blocks that apply on a date: the chosen day plan's blocks, or the weekly template's. */
+export function blocksOn(data: AppData, dateKey: string): Block[] {
+  const plan = planFor(data, dateKey)
+  if (plan) return data.blocks.filter((b) => b.planId === plan)
+  const weekday = isoWeekday(dateKey)
+  return data.blocks.filter((b) => !b.planId && b.days.includes(weekday))
+}
+
 /** All occurrences that start on the given date, sorted by start time. */
 export function occurrencesOn(data: AppData, dateKey: string): Occurrence[] {
-  const weekday = isoWeekday(dateKey)
   const hidden = new Set(data.hidden[dateKey] ?? [])
   const list: Occurrence[] = []
-  for (const b of data.blocks) {
-    if (b.days.includes(weekday) && !hidden.has(b.id)) list.push(toOccurrence(data, b, 'block', dateKey))
+  for (const b of blocksOn(data, dateKey)) {
+    if (!hidden.has(b.id)) list.push(toOccurrence(data, b, 'block', dateKey))
   }
   for (const o of data.oneOffs) {
     if (o.date === dateKey && !hidden.has(o.id)) list.push(toOccurrence(data, o, 'oneoff', dateKey))
@@ -78,6 +91,8 @@ export function dueReminders(data: AppData, from: number, to: number): DueRemind
   const occs = occurrencesBetween(data, addDays(toDateKey(new Date(from)), -1), addDays(toDateKey(new Date(to)), 1))
   const due: DueReminder[] = []
   for (const o of occs) {
+    // Once a block is marked (e.g. from the phone), it needs no more reminders.
+    if (data.logs[o.dateKey]?.[o.sourceId]) continue
     for (const { type, at } of reminderTimes(o.reminders, o)) {
       if (at > from && at <= to) due.push({ id: `${o.key}:${type}`, type, at, occurrence: o })
     }
@@ -97,7 +112,7 @@ export function unmarkedToday(data: AppData, todayKey: string, now: number): Occ
 /** Titles of other blocks that overlap with the candidate on any shared weekday. */
 export function findOverlaps(
   blocks: Block[],
-  candidate: Pick<Block, 'id' | 'days' | 'start' | 'end'>
+  candidate: Pick<Block, 'id' | 'days' | 'start' | 'end' | 'planId'>
 ): Block[] {
   const range = (b: Pick<Block, 'start' | 'end'>): [number, number] => {
     const s = parseHM(b.start)
@@ -106,9 +121,40 @@ export function findOverlaps(
   }
   const [cs, ce] = range(candidate)
   return blocks.filter((b) => {
-    if (b.id === candidate.id) return false
-    if (!b.days.some((d) => candidate.days.includes(d))) return false
+    if (b.id === candidate.id || (b.planId ?? '') !== (candidate.planId ?? '')) return false
+    if (!candidate.planId && !b.days.some((d) => candidate.days.includes(d))) return false
     const [bs, be] = range(b)
     return cs < be && bs < ce
   })
+}
+
+/** Checklist items for a date: timed items first (by time), then untimed ones in their saved order. */
+export function checklistOn(data: AppData, dateKey: string): ChecklistItem[] {
+  const weekday = isoWeekday(dateKey)
+  const items = data.checklist.filter((c) => c.days.includes(weekday))
+  const timed = items.filter((c) => c.time).sort((a, b) => parseHM(a.time!) - parseHM(b.time!))
+  return [...timed, ...items.filter((c) => !c.time)]
+}
+
+export function isChecked(data: AppData, dateKey: string, itemId: string): boolean {
+  return (data.checks[dateKey] ?? []).includes(itemId)
+}
+
+/** Timed checklist reminders in (from, to] that are not ticked off yet. */
+export function dueChecklist(data: AppData, from: number, to: number): DueChecklist[] {
+  const due: DueChecklist[] = []
+  const last = toDateKey(new Date(to))
+  for (let k = toDateKey(new Date(from)); k <= last; k = addDays(k, 1)) {
+    for (const item of checklistOn(data, k)) {
+      if (!item.time || isChecked(data, k, item.id)) continue
+      const at = atTime(k, item.time)
+      if (at > from && at <= to) due.push({ id: `${k}:check:${item.id}`, dateKey: k, at, item })
+    }
+  }
+  return due.sort((a, b) => a.at - b.at)
+}
+
+/** Checklist items of the day that are not ticked off yet. */
+export function uncheckedOn(data: AppData, dateKey: string): ChecklistItem[] {
+  return checklistOn(data, dateKey).filter((c) => !isChecked(data, dateKey, c.id))
 }

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { nowState, occurrencesOn } from '@shared/schedule'
+import type { FocusState } from '@shared/api'
+import { nowState, occurrencesOn, planFor } from '@shared/schedule'
 import { dayStat } from '@shared/stats'
 import { addDays, clockOf, formatDuration, fromDateKey, isoWeekday, toDateKey } from '@shared/time'
 import type { AppData, Occurrence, Status } from '@shared/types'
 import { BlockEditor, type EditorTarget } from '../components/BlockEditor'
+import { ChecklistCard } from '../components/Checklist'
 import { Icon, type IconName } from '../components/Icon'
 import { useStore } from '../store'
 
@@ -72,6 +74,29 @@ export function TodayPage() {
           <p className="muted">{dateLabel}</p>
         </div>
         <div className="day-nav">
+          {data.plans.length > 0 && (
+            <select
+              className="plan-select"
+              aria-label={t('today.plan')}
+              title={t('today.plan')}
+              value={planFor(data, dayKey) ?? ''}
+              onChange={(e) =>
+                update((d) => {
+                  const dayPlans = { ...d.dayPlans }
+                  if (e.target.value) dayPlans[dayKey] = e.target.value
+                  else delete dayPlans[dayKey]
+                  return { ...d, dayPlans }
+                })
+              }
+            >
+              <option value="">{t('plans.template')}</option>
+              {data.plans.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name || t('plans.newName')}
+                </option>
+              ))}
+            </select>
+          )}
           <button className="icon-btn" onClick={() => setDayKey(addDays(dayKey, -1))} aria-label={t('today.prev')} title={t('today.prev')}>
             <Icon name="left" />
           </button>
@@ -85,6 +110,8 @@ export function TodayPage() {
       </header>
 
       {isToday && <NowCard />}
+
+      <ChecklistCard dayKey={dayKey} />
 
       <div className="list-head">
         {stat.total > 0 ? (
@@ -191,6 +218,50 @@ export function TodayPage() {
   )
 }
 
+/** Pomodoro control; the timer itself runs in the main process. */
+function FocusControl() {
+  const { data, t } = useStore()
+  const [state, setState] = useState<FocusState>(null)
+  const [, tick] = useState(0)
+  useEffect(() => {
+    void window.ritim.focusState().then(setState)
+    return window.ritim.onFocus(setState)
+  }, [])
+  useEffect(() => {
+    if (!state) return
+    const id = setInterval(() => tick((n) => n + 1), 1000)
+    return () => clearInterval(id)
+  }, [state])
+
+  if (!state) {
+    return (
+      <button className="btn focus-btn" onClick={() => void window.ritim.focusStart()}>
+        {t('focus.start', { n: data.settings.focusMinutes })}
+      </button>
+    )
+  }
+  const left = Math.max(0, state.endsAt - Date.now())
+  const mm = String(Math.floor(left / 60_000)).padStart(2, '0')
+  const ss = String(Math.floor((left % 60_000) / 1000)).padStart(2, '0')
+  const pct = 100 - (left / (state.minutes * 60_000)) * 100
+  return (
+    <div className={`focus-timer ${state.phase}`}>
+      <div className="focus-ring" style={{ ['--p' as string]: `${pct}%` }} aria-hidden="true" />
+      <div>
+        <span className="eyebrow">
+          {state.phase === 'focus' ? t('focus.focusing') : t('focus.break')} · {t('focus.round', { n: state.cycle })}
+        </span>
+        <span className="focus-time" role="timer">
+          {mm}:{ss}
+        </span>
+      </div>
+      <button className="btn" onClick={() => void window.ritim.focusStop()}>
+        {t('focus.stop')}
+      </button>
+    </div>
+  )
+}
+
 function NowCard() {
   const { data, t, now, category } = useStore()
   const lang = data.settings.lang
@@ -231,6 +302,7 @@ function NowCard() {
         ) : (
           <span className="muted">{t('today.nothingNext')}</span>
         )}
+        <FocusControl />
       </div>
     </section>
   )

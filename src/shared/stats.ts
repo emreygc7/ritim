@@ -1,5 +1,5 @@
-import { occurrencesOn } from './schedule'
-import { addDays } from './time'
+import { isChecked, occurrencesOn } from './schedule'
+import { addDays, isoWeekday } from './time'
 import type { AppData, Status } from './types'
 
 /** Weight of each status when computing completed time. */
@@ -95,6 +95,24 @@ export function streak(data: AppData, todayKey: string, now: number): number {
     const r = ok(k)
     if (r === null) continue
     if (!r) break
+    count += 1
+  }
+  return count
+}
+
+/**
+ * Consecutive scheduled days a checklist item was ticked off, ending today
+ * (or yesterday while today is still open). Days the item isn't scheduled
+ * on are skipped.
+ */
+export function checklistStreak(data: AppData, itemId: string, todayKey: string): number {
+  const item = data.checklist.find((c) => c.id === itemId)
+  if (!item) return 0
+  let count = isChecked(data, todayKey, itemId) ? 1 : 0
+  let k = addDays(todayKey, -1)
+  for (let i = 0; i < 730 && !beforeStart(data, k); i++, k = addDays(k, -1)) {
+    if (!item.days.includes(isoWeekday(k))) continue
+    if (!isChecked(data, k, itemId)) break
     count += 1
   }
   return count

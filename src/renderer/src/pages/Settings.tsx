@@ -88,6 +88,37 @@ export function SettingsPage() {
             </select>
           </div>
         </div>
+        <div className="setting">
+          <span>{t('settings.focus')}</span>
+          <div className="inline-inputs">
+            <label className="inline small">
+              <input
+                type="number"
+                min={1}
+                max={180}
+                value={s.focusMinutes}
+                onChange={(e) => {
+                  const n = Math.round(Number(e.target.value))
+                  if (n >= 1 && n <= 180) set('focusMinutes', n)
+                }}
+              />
+              {t('settings.focusMinutes')}
+            </label>
+            <label className="inline small">
+              <input
+                type="number"
+                min={1}
+                max={180}
+                value={s.breakMinutes}
+                onChange={(e) => {
+                  const n = Math.round(Number(e.target.value))
+                  if (n >= 1 && n <= 180) set('breakMinutes', n)
+                }}
+              />
+              {t('settings.breakMinutes')}
+            </label>
+          </div>
+        </div>
       </section>
 
       <section className="card settings">
@@ -150,6 +181,8 @@ export function SettingsPage() {
 
       <PhoneSection />
 
+      <MarkdownSection />
+
       <Categories />
 
       <section className="card settings">
@@ -174,6 +207,16 @@ export function SettingsPage() {
             {t('settings.import')}
           </button>
           <button
+            className="btn"
+            onClick={async () => {
+              const r = await window.ritim.importIcs()
+              if (r.status === 'ok') setMessage(t('settings.icsDone', { n: r.added, s: r.skipped }))
+              else if (r.status === 'error') setMessage(t('settings.icsFailed'))
+            }}
+          >
+            {t('settings.ics')}
+          </button>
+          <button
             className={`btn${armed === 'sample' ? ' armed' : ''}`}
             onClick={() => confirmThen('sample', () => update((d) => ({ ...sampleData(d.settings.lang), settings: d.settings })))}
           >
@@ -195,8 +238,11 @@ export function SettingsPage() {
             {message}
           </p>
         )}
+        <p className="muted small">{t('settings.icsHint')}</p>
         <p className="muted small">{t('settings.dataPath', { p: dataPath })}</p>
       </section>
+
+      <UpdatesSection />
     </div>
   )
 }
@@ -364,6 +410,18 @@ function PhoneSection() {
           )}
           <label className="setting">
             <span>
+              {t('settings.phoneActions')}
+              <small className="muted block">{t('settings.phoneActionsHint')}</small>
+            </span>
+            <input
+              type="checkbox"
+              className="switch"
+              checked={phone.actions}
+              onChange={(e) => setPhone({ actions: e.target.checked })}
+            />
+          </label>
+          <label className="setting">
+            <span>
               {t('settings.phonePrivate')}
               <small className="muted block">{t('settings.phonePrivateHint')}</small>
             </span>
@@ -385,6 +443,103 @@ function PhoneSection() {
           </label>
           <p className="muted small">{t('settings.phonePrivacy')}</p>
         </>
+      )}
+    </section>
+  )
+}
+
+function MarkdownSection() {
+  const { data, update, t } = useStore()
+  const dir = data.settings.markdownDir
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const setDir = (markdownDir: string | null): void =>
+    update((d) => ({ ...d, settings: { ...d.settings, markdownDir } }))
+
+  return (
+    <section className="card settings">
+      <h2>{t('settings.markdown')}</h2>
+      <p className="muted small">{t('settings.markdownHint')}</p>
+      <div className="setting">
+        <code className={`path${dir ? '' : ' empty'}`}>{dir ?? t('settings.markdownNone')}</code>
+        <div className="inline-inputs">
+          <button
+            className="btn"
+            onClick={async () => {
+              const picked = await window.ritim.chooseMarkdownDir()
+              if (picked) setDir(picked)
+            }}
+          >
+            {t('settings.markdownChoose')}
+          </button>
+          {dir && (
+            <button className="btn" onClick={() => setDir(null)}>
+              {t('settings.markdownOff')}
+            </button>
+          )}
+        </div>
+      </div>
+      {dir && (
+        <div className="setting">
+          <span />
+          <button
+            className="btn"
+            onClick={async () => {
+              const r = await window.ritim.exportMarkdownHistory(30)
+              setMessage(
+                r.error
+                  ? { ok: false, text: t('settings.markdownError', { e: r.error }) }
+                  : { ok: true, text: t('settings.markdownWritten', { n: r.written }) }
+              )
+            }}
+          >
+            {t('settings.markdownHistory')}
+          </button>
+        </div>
+      )}
+      {message && (
+        <p className={message.ok ? 'hint' : 'error'} role="status">
+          {message.text}
+        </p>
+      )}
+    </section>
+  )
+}
+
+function UpdatesSection() {
+  const { data, update, t } = useStore()
+  const [info, setInfo] = useState<Awaited<ReturnType<typeof window.ritim.updateInfo>> | null>(null)
+  useEffect(() => {
+    void window.ritim.updateInfo().then(setInfo)
+  }, [data.settings.checkUpdates])
+
+  return (
+    <section className="card settings">
+      <h2>{t('settings.updates')}</h2>
+      <label className="setting">
+        <span>
+          {t('settings.checkUpdates')}
+          {info && <small className="muted block">{t('settings.version', { v: info.current })}</small>}
+        </span>
+        <input
+          type="checkbox"
+          className="switch"
+          checked={data.settings.checkUpdates}
+          onChange={(e) => update((d) => ({ ...d, settings: { ...d.settings, checkUpdates: e.target.checked } }))}
+        />
+      </label>
+      {info?.repoConfigured && info.checked && (
+        <p className="muted small" role="status">
+          {info.latest && info.url ? (
+            <>
+              {t('settings.updateAvailable', { v: info.latest })}{' '}
+              <button className="link" onClick={() => void window.ritim.openExternal(info.url!)}>
+                {t('settings.download')}
+              </button>
+            </>
+          ) : (
+            t('settings.upToDate')
+          )}
+        </p>
       )}
     </section>
   )

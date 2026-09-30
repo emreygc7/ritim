@@ -33,15 +33,32 @@ interface BlockBase {
   reminders: Reminders | null
 }
 
-/** Repeats every week on the given weekdays. */
+/** Repeats every week on the given weekdays, or belongs to an alternative day plan. */
 export interface Block extends BlockBase {
   days: Weekday[]
+  /** Absent: part of the weekly template. Set: part of that alternative day plan (days are ignored). */
+  planId?: string
+}
+
+/** An alternative day, e.g. "Light day" or "Vacation", that can replace the template on a date. */
+export interface Plan {
+  id: string
+  name: string
 }
 
 /** Happens once on a specific date. */
 export interface OneOff extends BlockBase {
   /** "YYYY-MM-DD" */
   date: string
+}
+
+/** Something to do every (selected) day, optionally with a reminder time. */
+export interface ChecklistItem {
+  id: string
+  text: string
+  days: Weekday[]
+  /** "HH:MM" to get a reminder, or null */
+  time: string | null
 }
 
 export type Status = 'done' | 'partial' | 'skipped'
@@ -62,6 +79,8 @@ export interface PhoneSettings {
   topic: string
   /** Send only generic text (no titles, times, categories or notes) to the phone */
   privateMode: boolean
+  /** Add Done / Partly / Skip buttons to phone notifications */
+  actions: boolean
 }
 
 export interface Settings {
@@ -79,6 +98,12 @@ export interface Settings {
   gridStartHour: number
   gridEndHour: number
   phone: PhoneSettings
+  /** Folder that receives daily and weekly Markdown summaries, or null */
+  markdownDir: string | null
+  focusMinutes: number
+  breakMinutes: number
+  /** Check GitHub releases for a newer version once a day */
+  checkUpdates: boolean
 }
 
 export interface AppData {
@@ -93,7 +118,21 @@ export interface AppData {
   logs: Record<string, Record<string, LogEntry>>
   /** hidden[dateKey] = sourceIds removed for that day only */
   hidden: Record<string, string[]>
+  checklist: ChecklistItem[]
+  /** checks[dateKey] = checklist item ids ticked off that day */
+  checks: Record<string, string[]>
+  plans: Plan[]
+  /** dayPlans[dateKey] = plan used instead of the weekly template on that date */
+  dayPlans: Record<string, string>
   settings: Settings
+}
+
+export interface DueChecklist {
+  /** Unique id used to avoid firing twice */
+  id: string
+  dateKey: string
+  at: number
+  item: ChecklistItem
 }
 
 export interface Occurrence {

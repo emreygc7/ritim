@@ -1,7 +1,7 @@
 import { translator } from './i18n'
 import { nowState } from './schedule'
 import { clockOf, toDateKey } from './time'
-import type { AppData, DueReminder } from './types'
+import type { AppData, DueChecklist, DueReminder } from './types'
 
 export interface ReminderMessage {
   title: string
@@ -43,5 +43,15 @@ export function reminderMessage(data: AppData, r: DueReminder): ReminderMessage 
     body: upcoming ? t('notify.nextUp', { title: upcoming.title, t: clockOf(upcoming.start) }) : category,
     privateTitle: t('notify.private.beforeEnd', { n }),
     privateBody
+  }
+}
+
+export function checklistMessage(data: AppData, c: DueChecklist): ReminderMessage {
+  const t = translator(data.settings.lang)
+  return {
+    title: t('notify.check', { text: c.item.text }),
+    body: t('notify.checkBody'),
+    privateTitle: t('notify.private.check'),
+    privateBody: t('notify.private.body')
   }
 }

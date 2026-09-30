@@ -15,6 +15,8 @@ export function BlockEditor({ target, onClose }: { target: EditorTarget; onClose
   const { data, update, t } = useStore()
   const src = target.mode === 'block' ? target.block : target.oneOff
   const isNew = !src.id
+  // Blocks of an alternative day plan have no weekdays; the plan is applied to dates.
+  const planId = target.mode === 'block' ? target.block.planId : undefined
   const [title, setTitle] = useState(src.title ?? '')
   const [categoryId, setCategoryId] = useState(src.categoryId ?? data.categories[0]?.id ?? '')
   const [days, setDays] = useState<Weekday[]>(target.mode === 'block' ? (target.block.days ?? []) : [])
@@ -43,8 +45,8 @@ export function BlockEditor({ target, onClose }: { target: EditorTarget; onClose
   const validTimes = isValidHM(start) && isValidHM(end) && parseHM(start) !== parseHM(end)
   const overnight = validTimes && parseHM(end) < parseHM(start)
   const overlaps =
-    target.mode === 'block' && validTimes && days.length
-      ? findOverlaps(data.blocks, { id: src.id ?? '', days, start, end })
+    target.mode === 'block' && validTimes && (days.length || planId)
+      ? findOverlaps(data.blocks, { id: src.id ?? '', days, start, end, planId })
       : []
 
   const toggleDay = (d: Weekday): void =>
@@ -54,7 +56,7 @@ export function BlockEditor({ target, onClose }: { target: EditorTarget; onClose
     if (!title.trim()) return setError(t('editor.errTitle'))
     if (!categoryId) return setError(t('editor.errCategory'))
     if (!validTimes) return setError(t('editor.errTime'))
-    if (target.mode === 'block' && days.length === 0) return setError(t('editor.errDays'))
+    if (target.mode === 'block' && !planId && days.length === 0) return setError(t('editor.errDays'))
     if (target.mode === 'oneoff' && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError(t('editor.errDate'))
     const base = {
       id: src.id ?? newId(),
@@ -67,7 +69,7 @@ export function BlockEditor({ target, onClose }: { target: EditorTarget; onClose
     }
     update((d) => {
       if (target.mode === 'block') {
-        const block: Block = { ...base, days }
+        const block: Block = planId ? { ...base, days: [], planId } : { ...base, days }
         return { ...d, blocks: isNew ? [...d.blocks, block] : d.blocks.map((b) => (b.id === block.id ? block : b)) }
       }
       const one: OneOff = { ...base, date }
@@ -119,7 +121,7 @@ export function BlockEditor({ target, onClose }: { target: EditorTarget; onClose
             </div>
           </label>
 
-          {target.mode === 'block' ? (
+          {target.mode === 'block' && planId ? null : target.mode === 'block' ? (
             <div className="field">
               <span>{t('editor.days')}</span>
               <div className="day-picker">

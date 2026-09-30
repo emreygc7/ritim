@@ -3,3 +3,8 @@ out/
 dist/
 *.log
 .DS_Store
+
+# Local notes for Claude Code (not published)
+CLAUDE.md
+CLAUDE.local.md
+.claude/

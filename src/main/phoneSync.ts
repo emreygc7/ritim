@@ -1,10 +1,12 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
-import { reminderMessage } from '@shared/messages'
-import { dueReminders } from '@shared/schedule'
-import type { AppData, PhoneSettings } from '@shared/types'
-import { cancelOnPhone, pushToPhone } from './push'
+import { checklistMessage, reminderMessage, type ReminderMessage } from '@shared/messages'
+import { dueChecklist, dueReminders } from '@shared/schedule'
+import { actionTopic, markAction } from '@shared/actions'
+import { translator } from '@shared/i18n'
+import type { AppData, DueReminder, PhoneSettings, Status } from '@shared/types'
+import { cancelOnPhone, pushToPhone, type PhoneAction } from './push'
 
 /**
  * Keeps the phone's upcoming reminders queued on the ntfy server as scheduled
@@ -42,6 +44,7 @@ export interface PhoneSyncStatus {
 interface Desired extends Entry {
   title: string
   body: string
+  actions?: PhoneAction[]
 }
 
 const sequenceId = (reminderId: string): string => reminderId.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64)
@@ -123,12 +126,36 @@ export class PhoneSync {
     const phone = data.settings.phone
     if (!phone.enabled || !phone.topic) return out
     const mutedUntil = data.settings.dndUntil ? Date.parse(data.settings.dndUntil) : 0
-    for (const r of dueReminders(data, now + MIN_LEAD_MS, now + WINDOW_MS)) {
-      if (r.at < mutedUntil) continue
-      const m = reminderMessage(data, r)
+    const add = (id: string, at: number, m: ReminderMessage, actions?: PhoneAction[]): void => {
+      if (at < mutedUntil) return
       const [title, body] = phone.privateMode ? [m.privateTitle, m.privateBody] : [m.title, m.body]
-      out.set(sequenceId(r.id), { at: r.at, title, body, hash: `${r.at}|${title}|${body}` })
+      out.set(sequenceId(id), { at, title, body, actions, hash: `${at}|${title}|${body}|${actions ? 'a' : ''}` })
     }
+    const tracked = new Set(data.categories.filter((c) => c.track).map((c) => c.id))
+    const t = translator(data.settings.lang)
+    const url = `${phone.server.replace(/\/+$/, '')}/${encodeURIComponent(actionTopic(phone.topic))}`
+    // Done / Partly / Skip buttons on "started" and "ending soon" reminders of tracked blocks.
+    const buttons = (r: DueReminder): PhoneAction[] | undefined => {
+      if (!phone.actions || r.type === 'beforeStart' || !tracked.has(r.occurrence.categoryId)) return undefined
+      const statuses: [Status, 'status.done' | 'status.partial' | 'status.skipped'][] = [
+        ['done', 'status.done'],
+        ['partial', 'status.partial'],
+        ['skipped', 'status.skipped']
+      ]
+      return statuses.map(([status, label]) => ({
+        action: 'http',
+        label: t(label),
+        url,
+        method: 'POST',
+        body: markAction(r.occurrence.dateKey, r.occurrence.sourceId, status),
+        clear: true
+      }))
+    }
+    const from = now + MIN_LEAD_MS
+    const to = now + WINDOW_MS
+    for (const r of dueReminders(data, from, to)) add(r.id, r.at, reminderMessage(data, r), buttons(r))
+    // Ticking an item off removes it here, so its queued phone reminder gets cancelled.
+    for (const c of dueChecklist(data, from, to)) add(c.id, c.at, checklistMessage(data, c))
     return out
   }
 
@@ -164,7 +191,7 @@ export class PhoneSync {
 
     for (const [sid, d] of want) {
       if (this.state.entries[sid]?.hash === d.hash) continue
-      await pushToPhone(phone, d.title, d.body, { at: d.at, sequenceId: sid })
+      await pushToPhone(phone, d.title, d.body, { at: d.at, sequenceId: sid, actions: d.actions })
       this.state.entries[sid] = { at: d.at, hash: d.hash }
       this.save()
     }

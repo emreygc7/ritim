@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process'
 import { Notification, powerMonitor } from 'electron'
 import { translator } from '@shared/i18n'
-import { reminderMessage } from '@shared/messages'
-import { dueReminders, unmarkedToday } from '@shared/schedule'
+import { checklistMessage, reminderMessage } from '@shared/messages'
+import { dueChecklist, dueReminders, uncheckedOn, unmarkedToday } from '@shared/schedule'
 import { atTime, toDateKey } from '@shared/time'
 import type { AppData, DueReminder } from '@shared/types'
 import { pushToPhone } from './push'
@@ -102,16 +102,32 @@ export class Scheduler {
       if (!muted) this.fireReminder(data, r)
     }
 
+    for (const c of dueChecklist(data, from, now)) {
+      if (this.fired.has(c.id)) continue
+      this.fired.add(c.id)
+      if (muted) continue
+      const m = checklistMessage(data, c)
+      // Like block reminders, the phone copy is queued ahead of time by PhoneSync.
+      this.notify(m.title, m.body, { privateTitle: m.privateTitle, toPhone: false })
+    }
+
     const review = data.settings.dayReviewTime
     if (review) {
       const at = atTime(todayKey, review)
       const id = `${todayKey}:review`
       if (at > from && at <= now && !this.fired.has(id)) {
         this.fired.add(id)
-        const open = unmarkedToday(data, todayKey, now).length
-        if (open > 0 && !muted) {
+        const blocks = unmarkedToday(data, todayKey, now).length
+        const checks = uncheckedOn(data, todayKey).length
+        if ((blocks > 0 || checks > 0) && !muted) {
           const t = translator(data.settings.lang)
-          this.notify(t('notify.review'), t('notify.reviewBody', { n: open }), {
+          const body = [
+            blocks > 0 ? t('notify.reviewBody', { n: blocks }) : '',
+            checks > 0 ? t('notify.reviewChecks', { n: checks }) : ''
+          ]
+            .filter(Boolean)
+            .join(' ')
+          this.notify(t('notify.review'), body, {
             privateTitle: t('notify.private.review'),
             toPhone: true
           })

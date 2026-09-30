@@ -1,5 +1,5 @@
 import { isValidHM } from './time'
-import type { AppData, Block, Category, Lang, OneOff, Reminders, Settings, Weekday } from './types'
+import type { AppData, Block, Category, ChecklistItem, Lang, OneOff, Reminders, Settings, Weekday } from './types'
 
 export function defaultSettings(lang: Lang): Settings {
   return {
@@ -13,7 +13,11 @@ export function defaultSettings(lang: Lang): Settings {
     closeToTray: true,
     gridStartHour: 6,
     gridEndHour: 24,
-    phone: { enabled: false, server: 'https://ntfy.sh', topic: '', privateMode: false }
+    phone: { enabled: false, server: 'https://ntfy.sh', topic: '', privateMode: false, actions: true },
+    markdownDir: null,
+    focusMinutes: 25,
+    breakMinutes: 5,
+    checkUpdates: true
   }
 }
 
@@ -27,6 +31,10 @@ export function emptyData(lang: Lang): AppData {
     oneOffs: [],
     logs: {},
     hidden: {},
+    checklist: [],
+    checks: {},
+    plans: [],
+    dayPlans: {},
     settings: defaultSettings(lang)
   }
 }
@@ -52,6 +60,11 @@ function base(v: Record<string, unknown>) {
     reminders: reminders(v.reminders)
   }
 }
+
+const weekdays = (v: unknown): Weekday[] =>
+  Array.isArray(v)
+    ? ([...new Set(v.filter((d): d is Weekday => Number.isInteger(d) && d >= 1 && d <= 7))].sort() as Weekday[])
+    : []
 
 const validBase = (b: { id: string; start: string; end: string; title: string }): boolean =>
   b.id !== '' && b.title !== '' && isValidHM(b.start) && isValidHM(b.end) && b.start !== b.end
@@ -80,15 +93,27 @@ export function normalizeData(raw: unknown, lang: Lang): AppData {
   }
   const catIds = new Set(data.categories.map((c) => c.id))
 
+  if (Array.isArray(raw.plans)) {
+    data.plans = raw.plans
+      .filter(isObj)
+      .map((p) => ({ id: str(p.id), name: str(p.name).trim().slice(0, 40) }))
+      .filter((p) => p.id)
+  }
+  const planIds = new Set(data.plans.map((p) => p.id))
+
   if (Array.isArray(raw.blocks)) {
     data.blocks = raw.blocks.filter(isObj).map(
       (b): Block => ({
         ...base(b),
-        days: Array.isArray(b.days)
-          ? ([...new Set(b.days.filter((d): d is Weekday => Number.isInteger(d) && d >= 1 && d <= 7))].sort() as Weekday[])
-          : []
+        days: weekdays(b.days),
+        ...(typeof b.planId === 'string' && b.planId ? { planId: b.planId } : {})
       })
-    ).filter((b) => validBase(b) && b.days.length > 0 && catIds.has(b.categoryId))
+    ).filter(
+      (b) =>
+        validBase(b) &&
+        catIds.has(b.categoryId) &&
+        (b.planId ? planIds.has(b.planId) : b.days.length > 0)
+    )
   }
 
   if (Array.isArray(raw.oneOffs)) {
@@ -107,6 +132,35 @@ export function normalizeData(raw: unknown, lang: Lang): AppData {
         out[id] = { status: e.status as 'done', at: str(e.at, new Date(0).toISOString()), ...(note ? { note } : {}) }
       }
       if (Object.keys(out).length) data.logs[day] = out
+    }
+  }
+
+  if (Array.isArray(raw.checklist)) {
+    data.checklist = raw.checklist
+      .filter(isObj)
+      .map(
+        (c): ChecklistItem => ({
+          id: str(c.id),
+          // Kept even when empty (mid-edit); the UI shows a placeholder.
+          text: str(c.text).slice(0, 160),
+          days: weekdays(c.days),
+          time: typeof c.time === 'string' && isValidHM(c.time) ? c.time : null
+        })
+      )
+      .filter((c) => c.id && c.days.length > 0)
+  }
+
+  if (isObj(raw.checks)) {
+    for (const [day, ids] of Object.entries(raw.checks)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Array.isArray(ids)) continue
+      const clean = [...new Set(ids.filter((x): x is string => typeof x === 'string'))]
+      if (clean.length) data.checks[day] = clean
+    }
+  }
+
+  if (isObj(raw.dayPlans)) {
+    for (const [day, planId] of Object.entries(raw.dayPlans)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(day) && typeof planId === 'string' && planIds.has(planId)) data.dayPlans[day] = planId
     }
   }
 
@@ -133,9 +187,18 @@ export function normalizeData(raw: unknown, lang: Lang): AppData {
         enabled: s.phone.enabled === true,
         server: /^https?:\/\/\S+$/.test(server) ? server.replace(/\/+$/, '') : d.phone.server,
         topic: /^[\w-]{1,64}$/.test(str(s.phone.topic)) ? str(s.phone.topic) : '',
-        privateMode: s.phone.privateMode === true
+        privateMode: s.phone.privateMode === true,
+        actions: s.phone.actions !== false
       }
     }
+    d.markdownDir = typeof s.markdownDir === 'string' && s.markdownDir.startsWith('/') ? s.markdownDir : null
+    const minutes = (v: unknown, fallback: number): number => {
+      const n = num(v)
+      return n !== null && n >= 1 && n <= 180 ? Math.round(n) : fallback
+    }
+    d.focusMinutes = minutes(s.focusMinutes, d.focusMinutes)
+    d.breakMinutes = minutes(s.breakMinutes, d.breakMinutes)
+    d.checkUpdates = s.checkUpdates !== false
     const gs = num(s.gridStartHour)
     const ge = num(s.gridEndHour)
     if (gs !== null && ge !== null && gs < ge && ge <= 24) {
