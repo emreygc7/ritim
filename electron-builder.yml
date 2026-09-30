@@ -1,0 +1,23 @@
+appId: app.ritim.desktop
+productName: Ritim
+directories:
+  output: dist
+  buildResources: resources
+files:
+  - out/**
+  - resources/**
+  - package.json
+extraResources:
+  - from: resources
+    to: resources
+linux:
+  target: [AppImage, deb]
+  category: Utility
+  icon: resources/icons
+  executableName: ritim
+  synopsis: Weekly routine planner with reminders
+  desktop:
+    entry:
+      StartupWMClass: Ritim
+deb:
+  depends: [libnotify4]
