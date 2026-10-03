@@ -37,6 +37,15 @@
 - Private mode sends only generic text such as "A block has started"
 - Works with ntfy.sh or your own ntfy server
 
+**Notes**
+- A Markdown editor with edit, split and preview modes, a formatting toolbar and keyboard shortcuts
+- Lists and checklists continue on Enter; tick checkboxes right in the preview
+- #tags with a tag filter, full-text search, pinning and sorting
+- Link notes with `[[Note title]]`, with suggestions while typing and backlinks
+- Attach notes to blocks; they show up under the block on the Today page
+- Autosave, a trash you can restore from, and quick "New note" from the tray
+- Exported to your Markdown folder too, so they appear in Obsidian
+
 **Daily checklist**
 - Recurring to-dos for chosen weekdays, ticked off on the Today page, with a streak per item
 - Optional reminder time per item; the reminder is skipped if it is already ticked off
@@ -56,9 +65,11 @@
 - Tells you when a new version is published
 - All data stays in a single JSON file on your computer, with import and export
 
-| Weekly template | Stats |
+| Weekly template | Notes |
 |---|---|
-| ![Weekly template](docs/week.png) | ![Stats](docs/stats.png) |
+| ![Weekly template](docs/week.png) | ![Notes](docs/notes.png) |
+
+![Stats](docs/stats.png)
 
 ## Installation
 
@@ -155,7 +166,7 @@ On the public ntfy.sh server, anyone who knows your topic name can read its mess
 
 ### Obsidian and other Markdown apps
 
-Open **Settings → Markdown export** and choose a folder, for example a `Ritim` folder in your Obsidian vault. Ritim keeps a note for each day (`2026-10-01.md`) and each week (`2026-W40.md`) up to date there. Use **Export last 30 days** to fill in the recent past.
+Open **Settings → Markdown export** and choose a folder, for example a `Ritim` folder in your Obsidian vault. Ritim keeps a note for each day (`2026-10-01.md`) and each week (`2026-W40.md`) up to date there, and writes your notes into a `Notes` sub-folder. A note file you edit outside Ritim is never deleted. Use **Export last 30 days** to fill in the recent past.
 
 ## Updates
 

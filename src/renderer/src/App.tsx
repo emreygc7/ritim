@@ -2,15 +2,17 @@ import type { Page } from '@shared/api'
 import logo from './assets/logo.png'
 import { Icon, type IconName } from './components/Icon'
 import { Onboarding } from './pages/Onboarding'
+import { NotesPage } from './pages/Notes'
 import { SettingsPage } from './pages/Settings'
 import { StatsPage } from './pages/Stats'
 import { TodayPage } from './pages/Today'
 import { WeekPage } from './pages/Week'
 import { useStore } from './store'
 
-const NAV: { page: Page; icon: IconName; label: 'nav.today' | 'nav.week' | 'nav.stats' | 'nav.settings' }[] = [
+const NAV: { page: Page; icon: IconName; label: 'nav.today' | 'nav.week' | 'nav.notes' | 'nav.stats' | 'nav.settings' }[] = [
   { page: 'today', icon: 'today', label: 'nav.today' },
   { page: 'week', icon: 'week', label: 'nav.week' },
+  { page: 'notes', icon: 'notes', label: 'nav.notes' },
   { page: 'stats', icon: 'stats', label: 'nav.stats' },
   { page: 'settings', icon: 'settings', label: 'nav.settings' }
 ]
@@ -54,6 +56,7 @@ export function App() {
       <main className="content">
         {page === 'today' && <TodayPage />}
         {page === 'week' && <WeekPage />}
+        {page === 'notes' && <NotesPage />}
         {page === 'stats' && <StatsPage />}
         {page === 'settings' && <SettingsPage />}
       </main>

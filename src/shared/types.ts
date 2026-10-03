@@ -61,6 +61,22 @@ export interface ChecklistItem {
   time: string | null
 }
 
+/** A free-form Markdown note. Tags come from #hashtags in the body. */
+export interface Note {
+  id: string
+  title: string
+  /** Markdown */
+  body: string
+  pinned: boolean
+  /** Blocks or one-offs this note belongs to; shown next to them on the Today page */
+  blockIds: string[]
+  /** ISO timestamps */
+  createdAt: string
+  updatedAt: string
+  /** Set when moved to the trash */
+  deletedAt: string | null
+}
+
 export type Status = 'done' | 'partial' | 'skipped'
 
 export interface LogEntry {
@@ -124,6 +140,7 @@ export interface AppData {
   plans: Plan[]
   /** dayPlans[dateKey] = plan used instead of the weekly template on that date */
   dayPlans: Record<string, string>
+  notes: Note[]
   settings: Settings
 }
 

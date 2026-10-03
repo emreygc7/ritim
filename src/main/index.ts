@@ -29,12 +29,13 @@ if (process.env.RITIM_USER_DATA) app.setPath('userData', process.env.RITIM_USER_
 
 const startHidden = process.argv.includes('--hidden')
 /**
- * Screenshots only: pretend the clock shows this time today ("HH:MM") so the
+ * Screenshots only: pretend the clock shows this time (see below) so the
  * "now" card is in the middle of a block. Affects the UI clock, not reminders.
  */
 const clockOffsetMs = (() => {
-  const hm = process.env.RITIM_SCREENSHOT_TIME
-  return hm && isValidHM(hm) ? atTime(toDateKey(new Date()), hm) - Date.now() : 0
+  // "HH:MM" (today) or "YYYY-MM-DD HH:MM"
+  const m = /^(?:(\d{4}-\d{2}-\d{2}) )?(\d{1,2}:\d{2})$/.exec(process.env.RITIM_SCREENSHOT_TIME ?? '')
+  return m && isValidHM(m[2]) ? atTime(m[1] ?? toDateKey(new Date()), m[2]) - Date.now() : 0
 })()
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -205,6 +206,13 @@ function refreshTray(): void {
       : { label: t('tray.focusStart', { n: data.settings.focusMinutes }), click: () => focus?.start() },
     { type: 'separator' },
     { label: t('tray.open'), click: () => showWindow('today') },
+    {
+      label: t('tray.newNote'),
+      click: () => {
+        showWindow('notes')
+        win?.webContents.send(IPC.newNote)
+      }
+    },
     { type: 'separator' },
     muted
       ? { label: t('tray.dndOff'), click: () => mute(null) }
@@ -374,7 +382,7 @@ async function captureScreenshots(dir: string): Promise<void> {
   }
   for (const theme of ['light', 'dark'] as const) {
     nativeTheme.themeSource = theme
-    for (const page of ['today', 'week', 'stats', 'settings'] as Page[]) {
+    for (const page of ['today', 'week', 'notes', 'stats', 'settings'] as Page[]) {
       w.setContentSize(WIDTH, 800)
       w.webContents.send(IPC.navigate, page)
       await wait(600)
@@ -409,6 +417,12 @@ if (!app.requestSingleInstanceLock()) {
     data = loadData(lang)
     if (process.env.RITIM_DEMO && data.blocks.length === 0) {
       data = demoData(lang, toDateKey(new Date()), Date.now() + clockOffsetMs)
+    }
+    // Notes stay in the trash for 30 days.
+    const purgeBefore = Date.now() - 30 * 86_400_000
+    if (data.notes.some((n) => n.deletedAt && Date.parse(n.deletedAt) < purgeBefore)) {
+      data = { ...data, notes: data.notes.filter((n) => !n.deletedAt || Date.parse(n.deletedAt) >= purgeBefore) }
+      persist()
     }
     if (!data.startedOn) {
       data = { ...data, startedOn: toDateKey(new Date()) }

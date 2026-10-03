@@ -27,7 +27,8 @@ const api: RitimApi = {
   updateInfo: () => ipcRenderer.invoke(IPC.updateInfo),
   openExternal: (url) => ipcRenderer.invoke(IPC.openExternal, url),
   onDataChanged: (cb) => subscribe<AppData>(IPC.dataChanged, cb),
-  onNavigate: (cb) => subscribe<Page>(IPC.navigate, cb)
+  onNavigate: (cb) => subscribe<Page>(IPC.navigate, cb),
+  onNewNote: (cb) => subscribe<void>(IPC.newNote, () => cb())
 }
 
 contextBridge.exposeInMainWorld('ritim', api)

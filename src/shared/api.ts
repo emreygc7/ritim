@@ -2,7 +2,7 @@ import type { AppData } from './types'
 
 export type ImportResult = 'ok' | 'cancel' | 'error'
 export type ExportResult = 'ok' | 'cancel' | 'error'
-export type Page = 'today' | 'week' | 'stats' | 'settings'
+export type Page = 'today' | 'week' | 'notes' | 'stats' | 'settings'
 
 export type FocusState = { phase: 'focus' | 'break'; endsAt: number; cycle: number; minutes: number } | null
 
@@ -42,6 +42,8 @@ export interface RitimApi {
   openExternal(url: string): Promise<void>
   onDataChanged(cb: (data: AppData) => void): () => void
   onNavigate(cb: (page: Page) => void): () => void
+  /** Tray "New note" */
+  onNewNote(cb: () => void): () => void
 }
 
 export const IPC = {
@@ -63,5 +65,6 @@ export const IPC = {
   updateInfo: 'ritim:update-info',
   openExternal: 'ritim:open-external',
   dataChanged: 'ritim:data-changed',
-  navigate: 'ritim:navigate'
+  navigate: 'ritim:navigate',
+  newNote: 'ritim:new-note'
 } as const

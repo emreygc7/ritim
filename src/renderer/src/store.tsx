@@ -14,6 +14,12 @@ interface Ctx {
   dataPath: string
   canAutostart: boolean
   category: (id: string) => Category | undefined
+  /** Note shown on the Notes page */
+  noteId: string | null
+  /** Opens the Notes page on a note (null = just the page) */
+  openNote: (id: string | null) => void
+  /** Increments when the tray asks for a new note */
+  newNoteRequest: number
 }
 
 const StoreContext = createContext<Ctx | null>(null)
@@ -45,6 +51,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [meta, setMeta] = useState({ dataPath: '', canAutostart: false })
   const [clockOffset, setClockOffset] = useState(0)
   const [page, setPage] = useState<Page>('today')
+  const [noteId, setNoteId] = useState<string | null>(null)
+  const [newNoteRequest, setNewNoteRequest] = useState(0)
+  const openNote = useCallback((id: string | null) => {
+    setNoteId(id)
+    setPage('notes')
+  }, [])
   const now = useNow(clockOffset)
 
   useEffect(() => {
@@ -55,9 +67,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     })
     const offData = window.ritim.onDataChanged(setData)
     const offNav = window.ritim.onNavigate(setPage)
+    const offNew = window.ritim.onNewNote(() => {
+      setPage('notes')
+      setNewNoteRequest((n) => n + 1)
+    })
     return () => {
       offData()
       offNav()
+      offNew()
     }
   }, [setData])
 
@@ -83,9 +100,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       page,
       setPage,
       ...meta,
-      category: (id: string) => cats.get(id)
+      category: (id: string) => cats.get(id),
+      noteId,
+      openNote,
+      newNoteRequest
     }
-  }, [data, update, now, page, meta])
+  }, [data, update, now, page, meta, noteId, openNote, newNoteRequest])
 
   useEffect(() => {
     if (data) document.documentElement.lang = data.settings.lang

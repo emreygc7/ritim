@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FocusState } from '@shared/api'
+import { noteTitle } from '@shared/notes'
 import { nowState, occurrencesOn, planFor } from '@shared/schedule'
 import { dayStat } from '@shared/stats'
 import { addDays, clockOf, formatDuration, fromDateKey, isoWeekday, toDateKey } from '@shared/time'
@@ -16,7 +17,7 @@ const STATUSES: { status: Status; icon: IconName; label: 'status.done' | 'status
 ]
 
 export function TodayPage() {
-  const { data, update, t, now, category } = useStore()
+  const { data, update, t, now, category, openNote: showNote } = useStore()
   const todayKey = toDateKey(new Date(now))
   const [dayKey, setDayKey] = useState(todayKey)
   // If today was on screen when the date changed (app left open overnight), move along with it.
@@ -161,6 +162,17 @@ export function TodayPage() {
                   {o.kind === 'oneoff' && <span className="tag">{t('today.oneOff')}</span>}
                 </div>
                 {o.note && <p className="occ-note">{o.note}</p>}
+                {data.notes
+                  .filter((n) => !n.deletedAt && n.blockIds.includes(o.sourceId))
+                  .map((n) => {
+                    const title = noteTitle(n, t('notes.untitled'))
+                    return (
+                      <button key={n.id} className="occ-linked-note" onClick={() => showNote(n.id)} title={t('today.openNote', { title })}>
+                        <Icon name="notes" size={13} />
+                        {title}
+                      </button>
+                    )
+                  })}
                 {openNote === o.sourceId && log && (
                   <textarea
                     className="log-note"

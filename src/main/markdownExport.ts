@@ -1,5 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { app } from 'electron'
+import { translator } from '@shared/i18n'
+import { activeNotes, noteFileName, noteMarkdown, noteTitle } from '@shared/notes'
 import { dailyFileName, dailyMarkdown, weeklyFileName, weeklyMarkdown } from '@shared/markdown'
 import { addDays, startOfWeek, toDateKey } from '@shared/time'
 import type { AppData } from '@shared/types'
@@ -68,6 +72,7 @@ export class MarkdownExporter {
         if (start && addDays(k, 6) < start) continue
         written += writeIfChanged(join(dir, weeklyFileName(k)), weeklyMarkdown(data, k, now))
       }
+      written += writeNotes(data, dir)
       this.lastError = null
     } catch (err) {
       this.lastError = err instanceof Error ? err.message : String(err)
@@ -75,6 +80,55 @@ export class MarkdownExporter {
     }
     return written
   }
+}
+
+interface NotesManifest {
+  dir: string
+  /** relative path → hash of the content Ritim last wrote there */
+  files: Record<string, string>
+}
+
+const sha = (s: string): string => createHash('sha1').update(s).digest('hex')
+const manifestPath = (): string => join(app.getPath('userData'), 'notes-export.json')
+
+function readManifest(): NotesManifest {
+  try {
+    if (existsSync(manifestPath())) return JSON.parse(readFileSync(manifestPath(), 'utf8')) as NotesManifest
+  } catch {
+    // corrupt manifest: start over; worst case an old exported note file stays behind
+  }
+  return { dir: '', files: {} }
+}
+
+/**
+ * Notes go to a sub-folder, one file per note. Files of deleted or renamed
+ * notes are removed, but only while they still hold exactly what Ritim wrote:
+ * a note edited in Obsidian is never deleted.
+ */
+function writeNotes(data: AppData, dir: string): number {
+  const t = translator(data.settings.lang)
+  const folder = t('notes.folder')
+  const untitled = t('notes.untitled')
+  const prev = readManifest()
+  const files: Record<string, string> = {}
+  const taken = new Set<string>()
+  let written = 0
+  mkdirSync(join(dir, folder), { recursive: true })
+  for (const n of activeNotes(data)) {
+    const rel = join(folder, noteFileName(noteTitle(n, untitled), taken))
+    const content = noteMarkdown(n, untitled)
+    written += writeIfChanged(join(dir, rel), content)
+    files[rel] = sha(content)
+  }
+  if (prev.dir === dir) {
+    for (const [rel, hash] of Object.entries(prev.files)) {
+      if (files[rel]) continue
+      const file = join(dir, rel)
+      if (existsSync(file) && sha(readFileSync(file, 'utf8')) === hash) rmSync(file)
+    }
+  }
+  writeFileSync(manifestPath(), JSON.stringify({ dir, files }))
+  return written
 }
 
 /** Avoids touching unchanged files, so sync tools and editors don't see noise. */

@@ -1,5 +1,5 @@
 import { isValidHM } from './time'
-import type { AppData, Block, Category, ChecklistItem, Lang, OneOff, Reminders, Settings, Weekday } from './types'
+import type { AppData, Block, Category, ChecklistItem, Lang, Note, OneOff, Reminders, Settings, Weekday } from './types'
 
 export function defaultSettings(lang: Lang): Settings {
   return {
@@ -35,6 +35,7 @@ export function emptyData(lang: Lang): AppData {
     checks: {},
     plans: [],
     dayPlans: {},
+    notes: [],
     settings: defaultSettings(lang)
   }
 }
@@ -164,6 +165,29 @@ export function normalizeData(raw: unknown, lang: Lang): AppData {
     }
   }
 
+  if (Array.isArray(raw.notes)) {
+    const iso = (v: unknown, fallback: string): string =>
+      typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? v : fallback
+    const epoch = new Date(0).toISOString()
+    const seen = new Set<string>()
+    data.notes = raw.notes
+      .filter(isObj)
+      .map((n): Note => {
+        const createdAt = iso(n.createdAt, epoch)
+        return {
+          id: str(n.id),
+          title: str(n.title).slice(0, 200),
+          body: str(n.body).slice(0, NOTE_MAX_LENGTH),
+          pinned: n.pinned === true,
+          blockIds: Array.isArray(n.blockIds) ? [...new Set(n.blockIds.filter((x): x is string => typeof x === 'string'))] : [],
+          createdAt,
+          updatedAt: iso(n.updatedAt, createdAt),
+          deletedAt: typeof n.deletedAt === 'string' && !Number.isNaN(Date.parse(n.deletedAt)) ? n.deletedAt : null
+        }
+      })
+      .filter((n) => n.id && !seen.has(n.id) && seen.add(n.id))
+  }
+
   if (isObj(raw.hidden)) {
     for (const [day, ids] of Object.entries(raw.hidden)) {
       if (Array.isArray(ids)) data.hidden[day] = ids.filter((x): x is string => typeof x === 'string')
@@ -217,6 +241,9 @@ export function newTopic(): string {
   crypto.getRandomValues(bytes)
   return 'ritim-' + Array.from(bytes, (b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('')
 }
+
+/** Generous cap that keeps a runaway paste from bloating the data file. */
+export const NOTE_MAX_LENGTH = 200_000
 
 export function newId(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)

@@ -1,5 +1,5 @@
 import { emptyData } from './normalize'
-import type { AppData, Block, Category, ChecklistItem, Lang, Plan, Weekday } from './types'
+import type { AppData, Block, Category, ChecklistItem, Lang, Note, Plan, Weekday } from './types'
 
 const WEEKDAYS: Weekday[] = [1, 2, 3, 4, 5]
 const EVERY_DAY: Weekday[] = [1, 2, 3, 4, 5, 6, 7]
@@ -68,5 +68,36 @@ export function sampleData(lang: Lang): AppData {
     light(L('Uyku', 'Sleep'), 'sleep', '23:30', '07:30')
   )
 
-  return { ...emptyData(lang), onboarded: true, categories, blocks, checklist, plans }
+  const stamp = new Date().toISOString()
+  const note = (id: string, title: string, body: string, blockIds: string[] = [], pinned = false): Note => ({
+    id,
+    title,
+    body,
+    pinned,
+    blockIds,
+    createdAt: stamp,
+    updatedAt: stamp,
+    deletedAt: null
+  })
+  const notes: Note[] = [
+    note(
+      'sample-note-1',
+      L('Ritim notlarına hoş geldin', 'Welcome to Ritim notes'),
+      tr
+        ? '## Neler yapabilirsin?\n\n- **Markdown** ile yaz: başlık, liste, `kod`, alıntı, tablo\n- #etiket ekle, soldan etiketle filtrele\n- Başka bir nota bağlan: [[Haftalık hedefler]]\n- Yapılacaklar: önizlemede kutucuğa tıkla\n\n- [x] İlk notu oku\n- [ ] Kendi notunu oluştur (Ctrl+N)\n- [ ] Bir notu bir bloğa bağla\n\n> İpucu: Ctrl+E ile düzenle, böl ve önizle arasında geçiş yap. #ritim'
+        : '## What you can do\n\n- Write in **Markdown**: headings, lists, `code`, quotes, tables\n- Add #tags and filter by them on the left\n- Link to another note: [[Weekly goals]]\n- Checklists: click a box in the preview\n\n- [x] Read the first note\n- [ ] Create your own note (Ctrl+N)\n- [ ] Link a note to a block\n\n> Tip: Ctrl+E switches between edit, split and preview. #ritim',
+      [],
+      true
+    ),
+    note(
+      'sample-note-2',
+      L('Haftalık hedefler', 'Weekly goals'),
+      tr
+        ? '- [ ] Derin çalışma bloklarının 4/5\u2019ini tamamla\n- [ ] Her gün öğrenme bloğunda 1 konu bitir\n- [ ] Pazar değerlendirmesini yap\n\nBu not "Derin çalışma" bloğuna bağlı; Bugün sayfasında bloğun altında görünür. #hedef'
+        : '- [ ] Finish 4 of 5 deep work blocks\n- [ ] Finish 1 topic in every learning block\n- [ ] Do the Sunday review\n\nThis note is linked to the "Deep work" block, so it shows under it on the Today page. #goals',
+      ['sample-3']
+    )
+  ]
+
+  return { ...emptyData(lang), onboarded: true, categories, blocks, checklist, plans, notes }
 }
