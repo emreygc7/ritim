@@ -1,6 +1,6 @@
 {
   "name": "ritim",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Weekly routine planner with reminders and progress tracking for Linux desktops",
   "main": "out/main/index.js",
   "scripts": {
