@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { continueList, indent, insert, toggleLinePrefix, wrap, type Edit } from '@shared/editing'
-import { backlinks, countWords, extractTags, noteTitle, taskProgress, toggleTask } from '@shared/notes'
+import { backlinks, countWords, extractTags, folderTree, noteTitle, taskProgress, toggleTask, type FolderNode } from '@shared/notes'
 import type { AppData, Note } from '@shared/types'
 import { useStore } from '../store'
 import { Icon } from './Icon'
@@ -293,6 +293,20 @@ export function NoteEditor({ note, readOnly, onOpenTitle, onTag }: Props) {
       </div>
 
       <div className="note-meta">
+        {(data.noteFolders.length > 0 || note.folderId) && (
+          <label className="folder-picker" title={t('notes.folderLabel')}>
+            <Icon name="folder" size={14} />
+            <select value={note.folderId ?? ''} disabled={readOnly} aria-label={t('notes.folderLabel')} onChange={(e) => patch({ folderId: e.target.value || null })}>
+              <option value="">{t('notes.topLevel')}</option>
+              {flatten(folderTree(data.noteFolders, data.notes)).map((n) => (
+                <option key={n.folder.id} value={n.folder.id}>
+                  {'\u00a0\u00a0'.repeat(n.depth)}
+                  {n.folder.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {tags.map((tg) => (
           <button key={tg} className="md-tag" onClick={() => onTag(tg)}>
             #{tg}
@@ -478,3 +492,5 @@ function BlockLinks({ note, readOnly, onChange }: { note: Note; readOnly: boolea
     </>
   )
 }
+
+const flatten = (nodes: FolderNode[]): FolderNode[] => nodes.flatMap((n) => [n, ...flatten(n.children)])

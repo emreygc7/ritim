@@ -75,6 +75,15 @@ export interface Note {
   updatedAt: string
   /** Set when moved to the trash */
   deletedAt: string | null
+  /** Folder the note lives in; null = top level */
+  folderId: string | null
+}
+
+/** A notes folder. Folders nest through parentId (null = top level). */
+export interface NoteFolder {
+  id: string
+  name: string
+  parentId: string | null
 }
 
 export type Status = 'done' | 'partial' | 'skipped'
@@ -141,6 +150,7 @@ export interface AppData {
   /** dayPlans[dateKey] = plan used instead of the weekly template on that date */
   dayPlans: Record<string, string>
   notes: Note[]
+  noteFolders: NoteFolder[]
   settings: Settings
 }
 

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { newId } from '@shared/normalize'
-import { extractTags, findNoteByTitle, noteExcerpt, noteTitle, searchNotes, tagCounts, taskProgress, type NoteSort } from '@shared/notes'
+import { extractTags, findNoteByTitle, folderAndDescendants, folderPath, noteExcerpt, noteTitle, searchNotes, tagCounts, taskProgress, type NoteSort } from '@shared/notes'
 import type { Note } from '@shared/types'
+import { DRAG_NOTE, FolderTree } from '../components/FolderTree'
 import { Icon } from '../components/Icon'
 import { NoteEditor } from '../components/NoteEditor'
 import { useStore } from '../store'
@@ -29,20 +30,34 @@ export function NotesPage() {
   const [tag, setTag] = useState<string | null>(null)
   const [sort, setSort] = useState<NoteSort>('updated')
   const [trash, setTrash] = useState(false)
+  /** Selected folder; null = all notes */
+  const [folder, setFolder] = useState<string | null>(null)
   const [armed, setArmed] = useState<string | null>(null)
   const search = useRef<HTMLInputElement>(null)
 
   const trashed = data.notes.filter((n) => n.deletedAt)
-  const list = useMemo(
-    () => searchNotes(data.notes.filter((n) => !!n.deletedAt === trash), { query, tag, sort, untitled }),
-    [data.notes, trash, query, tag, sort, untitled]
-  )
+  const list = useMemo(() => {
+    const inFolder = folder && !trash ? folderAndDescendants(data.noteFolders, folder) : null
+    const pool = data.notes.filter((n) => !!n.deletedAt === trash && (!inFolder || (n.folderId !== null && inFolder.has(n.folderId))))
+    return searchNotes(pool, { query, tag, sort, untitled })
+  }, [data.notes, data.noteFolders, folder, trash, query, tag, sort, untitled])
   const tags = useMemo(() => tagCounts(data.notes), [data.notes])
   const selected = data.notes.find((n) => n.id === noteId) ?? null
 
   const create = (fields: Partial<Note> = {}): void => {
     const stamp = new Date().toISOString()
-    const note: Note = { id: newId(), title: '', body: tag ? `#${tag}\n\n` : '', pinned: false, blockIds: [], createdAt: stamp, updatedAt: stamp, deletedAt: null, ...fields }
+    const note: Note = {
+      id: newId(),
+      title: '',
+      body: tag ? `#${tag}\n\n` : '',
+      pinned: false,
+      blockIds: [],
+      createdAt: stamp,
+      updatedAt: stamp,
+      deletedAt: null,
+      folderId: trash ? null : folder,
+      ...fields
+    }
     update((d) => ({ ...d, notes: [note, ...d.notes] }))
     setTrash(false)
     setQuery('')
@@ -133,7 +148,7 @@ export function NotesPage() {
         <div className="notes-filters">
           <div className="segmented small">
             <button className={!trash ? 'on' : ''} onClick={() => setTrash(false)}>
-              {t('notes.all')}
+              {t('notes.notes')}
             </button>
             <button className={trash ? 'on' : ''} onClick={() => setTrash(true)}>
               {t('notes.trash')} {trashed.length > 0 && `(${trashed.length})`}
@@ -145,6 +160,8 @@ export function NotesPage() {
             <option value="title">{t('notes.sort.title')}</option>
           </select>
         </div>
+
+        {!trash && <FolderTree selected={folder} onSelect={setFolder} total={data.notes.filter((n) => !n.deletedAt).length} />}
 
         {!trash && tags.length > 0 && (
           <div className="tag-filter">
@@ -176,7 +193,14 @@ export function NotesPage() {
             const noteTags = extractTags(n.body).slice(0, 3)
             return (
               <li key={n.id}>
-                <button className={`note-item${n.id === noteId ? ' on' : ''}`} role="option" aria-selected={n.id === noteId} onClick={() => openNote(n.id)}>
+                <button
+                  className={`note-item${n.id === noteId ? ' on' : ''}`}
+                  role="option"
+                  aria-selected={n.id === noteId}
+                  draggable={!trash}
+                  onDragStart={(e) => e.dataTransfer.setData(DRAG_NOTE, n.id)}
+                  onClick={() => openNote(n.id)}
+                >
                   <span className="note-item-title">
                     {n.pinned && <Icon name="pin" size={13} />}
                     {noteTitle(n, untitled)}
@@ -184,6 +208,14 @@ export function NotesPage() {
                   <span className="note-item-excerpt">{noteExcerpt(n.body, 110)}</span>
                   <span className="note-item-meta">
                     {relative(n.updatedAt, lang, now)}
+                    {n.folderId && n.folderId !== folder && (
+                      <span className="folder-mini">
+                        <Icon name="folder" size={11} />
+                        {folderPath(data.noteFolders, n.folderId)
+                          .map((f) => f.name)
+                          .join(' / ')}
+                      </span>
+                    )}
                     {tasks.total > 0 && <span>☑ {tasks.done}/{tasks.total}</span>}
                     {noteTags.map((tg) => (
                       <span key={tg} className="tag-mini">

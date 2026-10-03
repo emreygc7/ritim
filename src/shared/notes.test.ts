@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { normalizeData } from './normalize'
 import {
   backlinks,
+  canMoveFolder,
+  deleteFolder,
+  folderAndDescendants,
+  folderPath,
+  folderTree,
   countWords,
   extractLinks,
   extractTags,
@@ -29,6 +34,7 @@ function note(p: Partial<Note>): Note {
     createdAt: `2026-10-0${n % 9 || 1}T10:00:00.000Z`,
     updatedAt: `2026-10-0${n % 9 || 1}T10:00:00.000Z`,
     deletedAt: null,
+    folderId: null,
     ...p
   }
 }
@@ -144,5 +150,58 @@ describe('normalize', () => {
     expect(d.notes.map((x) => x.id)).toEqual(['a', 'c'])
     expect(d.notes[0]).toMatchObject({ blockIds: ['b1'], updatedAt: '2026-10-03T10:00:00.000Z', pinned: false })
     expect(d.notes[1].deletedAt).toBeNull()
+  })
+})
+
+describe('folders', () => {
+  const folders = [
+    { id: 'en', name: 'English', parentId: null },
+    { id: 'gr', name: 'Grammar', parentId: 'en' },
+    { id: 'be', name: 'Backend', parentId: null }
+  ]
+
+  it('builds a sorted tree with counts that include sub-folders', () => {
+    const notes = [note({ folderId: 'gr' }), note({ folderId: 'en' }), note({ folderId: 'gr', deletedAt: '2026-10-03T00:00:00.000Z' })]
+    const tree = folderTree(folders, notes)
+    expect(tree.map((n) => [n.folder.name, n.count])).toEqual([
+      ['Backend', 0],
+      ['English', 2]
+    ])
+    expect(tree[1].children.map((n) => [n.folder.name, n.count, n.depth])).toEqual([['Grammar', 1, 1]])
+  })
+
+  it('finds descendants and paths, and refuses moves that create cycles', () => {
+    expect([...folderAndDescendants(folders, 'en')].sort()).toEqual(['en', 'gr'])
+    expect(folderPath(folders, 'gr').map((f) => f.name)).toEqual(['English', 'Grammar'])
+    expect(canMoveFolder(folders, 'en', 'gr')).toBe(false)
+    expect(canMoveFolder(folders, 'gr', 'be')).toBe(true)
+    expect(canMoveFolder(folders, 'gr', null)).toBe(true)
+  })
+
+  it('moves notes and sub-folders up when a folder is deleted', () => {
+    const d = normalizeData({ noteFolders: folders, notes: [{ id: 'x', folderId: 'en' }, { id: 'y', folderId: 'gr' }] }, 'en')
+    const after = deleteFolder(d, 'en')
+    expect(after.noteFolders.map((f) => [f.id, f.parentId])).toEqual([
+      ['gr', null],
+      ['be', null]
+    ])
+    expect(after.notes.map((n) => n.folderId)).toEqual([null, 'gr'])
+  })
+
+  it('repairs broken folder data on load', () => {
+    const d = normalizeData(
+      {
+        noteFolders: [
+          { id: 'a', name: 'A', parentId: 'b' },
+          { id: 'b', name: 'B', parentId: 'a' },
+          { id: 'c', name: 'C', parentId: 'missing' }
+        ],
+        notes: [{ id: 'n', folderId: 'gone' }]
+      },
+      'en'
+    )
+    expect(d.noteFolders.find((f) => f.id === 'c')!.parentId).toBeNull()
+    expect(d.noteFolders.some((f) => f.parentId === null && (f.id === 'a' || f.id === 'b'))).toBe(true)
+    expect(d.notes[0].folderId).toBeNull()
   })
 })

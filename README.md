@@ -40,6 +40,7 @@
 **Notes**
 - A Markdown editor with edit, split and preview modes, a formatting toolbar and keyboard shortcuts
 - Lists and checklists continue on Enter; tick checkboxes right in the preview
+- Nested folders: drag notes and folders to reorganize; deleting a folder never deletes notes
 - #tags with a tag filter, full-text search, pinning and sorting
 - Link notes with `[[Note title]]`, with suggestions while typing and backlinks
 - Attach notes to blocks; they show up under the block on the Today page
@@ -166,7 +167,7 @@ On the public ntfy.sh server, anyone who knows your topic name can read its mess
 
 ### Obsidian and other Markdown apps
 
-Open **Settings → Markdown export** and choose a folder, for example a `Ritim` folder in your Obsidian vault. Ritim keeps a note for each day (`2026-10-01.md`) and each week (`2026-W40.md`) up to date there, and writes your notes into a `Notes` sub-folder. A note file you edit outside Ritim is never deleted. Use **Export last 30 days** to fill in the recent past.
+Open **Settings → Markdown export** and choose a folder, for example a `Ritim` folder in your Obsidian vault. Ritim keeps a note for each day (`2026-10-01.md`) and each week (`2026-W40.md`) up to date there, and writes your notes into a `Notes` sub-folder that mirrors your folders. A note file you edit outside Ritim is never deleted. Use **Export last 30 days** to fill in the recent past.
 
 ## Updates
 

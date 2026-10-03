@@ -1,5 +1,5 @@
 import { isValidHM } from './time'
-import type { AppData, Block, Category, ChecklistItem, Lang, Note, OneOff, Reminders, Settings, Weekday } from './types'
+import type { AppData, Block, Category, ChecklistItem, Lang, Note, NoteFolder, OneOff, Reminders, Settings, Weekday } from './types'
 
 export function defaultSettings(lang: Lang): Settings {
   return {
@@ -36,6 +36,7 @@ export function emptyData(lang: Lang): AppData {
     plans: [],
     dayPlans: {},
     notes: [],
+    noteFolders: [],
     settings: defaultSettings(lang)
   }
 }
@@ -165,6 +166,33 @@ export function normalizeData(raw: unknown, lang: Lang): AppData {
     }
   }
 
+  if (Array.isArray(raw.noteFolders)) {
+    const seen = new Set<string>()
+    const folders = raw.noteFolders
+      .filter(isObj)
+      .map((f): NoteFolder => ({
+        id: str(f.id),
+        name: str(f.name).trim().slice(0, 80),
+        parentId: typeof f.parentId === 'string' && f.parentId ? f.parentId : null
+      }))
+      .filter((f) => f.id && !seen.has(f.id) && seen.add(f.id))
+    // Missing parents become top level; parent cycles are broken at the first repeat.
+    const byId = new Map(folders.map((f) => [f.id, f]))
+    for (const f of folders) {
+      if (f.parentId && !byId.has(f.parentId)) f.parentId = null
+      const path = new Set([f.id])
+      for (let p = f.parentId; p; p = byId.get(p)?.parentId ?? null) {
+        if (path.has(p)) {
+          f.parentId = null
+          break
+        }
+        path.add(p)
+      }
+    }
+    data.noteFolders = folders
+  }
+  const folderIds = new Set(data.noteFolders.map((f) => f.id))
+
   if (Array.isArray(raw.notes)) {
     const iso = (v: unknown, fallback: string): string =>
       typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? v : fallback
@@ -182,7 +210,8 @@ export function normalizeData(raw: unknown, lang: Lang): AppData {
           blockIds: Array.isArray(n.blockIds) ? [...new Set(n.blockIds.filter((x): x is string => typeof x === 'string'))] : [],
           createdAt,
           updatedAt: iso(n.updatedAt, createdAt),
-          deletedAt: typeof n.deletedAt === 'string' && !Number.isNaN(Date.parse(n.deletedAt)) ? n.deletedAt : null
+          deletedAt: typeof n.deletedAt === 'string' && !Number.isNaN(Date.parse(n.deletedAt)) ? n.deletedAt : null,
+          folderId: typeof n.folderId === 'string' && folderIds.has(n.folderId) ? n.folderId : null
         }
       })
       .filter((n) => n.id && !seen.has(n.id) && seen.add(n.id))

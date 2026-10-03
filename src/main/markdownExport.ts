@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { app } from 'electron'
 import { translator } from '@shared/i18n'
-import { activeNotes, noteFileName, noteMarkdown, noteTitle } from '@shared/notes'
+import { activeNotes, folderFileName, folderPath, noteFileName, noteMarkdown, noteTitle } from '@shared/notes'
 import { dailyFileName, dailyMarkdown, weeklyFileName, weeklyMarkdown } from '@shared/markdown'
 import { addDays, startOfWeek, toDateKey } from '@shared/time'
 import type { AppData } from '@shared/types'
@@ -84,6 +84,8 @@ export class MarkdownExporter {
 
 interface NotesManifest {
   dir: string
+  /** Name of the notes sub-folder, fixed at the first export so a language change doesn't move it */
+  root?: string
   /** relative path → hash of the content Ritim last wrote there */
   files: Record<string, string>
 }
@@ -107,16 +109,19 @@ function readManifest(): NotesManifest {
  */
 function writeNotes(data: AppData, dir: string): number {
   const t = translator(data.settings.lang)
-  const folder = t('notes.folder')
-  const untitled = t('notes.untitled')
   const prev = readManifest()
+  const folder = prev.dir === dir && prev.root ? prev.root : t('notes.folder')
+  const untitled = t('notes.untitled')
   const files: Record<string, string> = {}
-  const taken = new Set<string>()
+  // File names must be unique per directory.
+  const taken = new Map<string, Set<string>>()
   let written = 0
-  mkdirSync(join(dir, folder), { recursive: true })
   for (const n of activeNotes(data)) {
-    const rel = join(folder, noteFileName(noteTitle(n, untitled), taken))
+    const sub = join(folder, ...folderPath(data.noteFolders, n.folderId).map((f) => folderFileName(f.name)))
+    if (!taken.has(sub)) taken.set(sub, new Set())
+    const rel = join(sub, noteFileName(noteTitle(n, untitled), taken.get(sub)!))
     const content = noteMarkdown(n, untitled)
+    mkdirSync(join(dir, sub), { recursive: true })
     written += writeIfChanged(join(dir, rel), content)
     files[rel] = sha(content)
   }
@@ -124,11 +129,22 @@ function writeNotes(data: AppData, dir: string): number {
     for (const [rel, hash] of Object.entries(prev.files)) {
       if (files[rel]) continue
       const file = join(dir, rel)
-      if (existsSync(file) && sha(readFileSync(file, 'utf8')) === hash) rmSync(file)
+      if (existsSync(file) && sha(readFileSync(file, 'utf8')) === hash) {
+        rmSync(file)
+        removeEmptyDirs(dirname(file), dir)
+      }
     }
   }
-  writeFileSync(manifestPath(), JSON.stringify({ dir, files }))
+  writeFileSync(manifestPath(), JSON.stringify({ dir, root: folder, files }))
   return written
+}
+
+/** Removes folders emptied by removing our own files, up to (never including) the export folder `stop`. */
+function removeEmptyDirs(from: string, stop: string): void {
+  for (let d = from; d.startsWith(stop) && d !== stop; d = dirname(d)) {
+    if (readdirSync(d).length) return
+    rmdirSync(d)
+  }
 }
 
 /** Avoids touching unchanged files, so sync tools and editors don't see noise. */

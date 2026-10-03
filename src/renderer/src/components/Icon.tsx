@@ -22,6 +22,9 @@ const paths = {
   restore: 'M4 12a8 8 0 1 0 2.3-5.6 M4 4v4h4',
   link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
   keyboard: 'M3 6h18v12H3z M7 10h1 M11 10h1 M15 10h1 M7 14h10',
+  folder: 'M3 6h6l2 2h10v11H3z',
+  folderPlus: 'M3 6h6l2 2h10v11H3z M12 11v5 M9.5 13.5h5',
+  edit: 'M4 20h4L19 9l-4-4L4 16z M14 6l4 4',
   trash: 'M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13'
 } as const
 

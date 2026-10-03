@@ -1,4 +1,4 @@
-import type { AppData, Note } from './types'
+import type { AppData, Note, NoteFolder } from './types'
 
 /** Words starting with # (letters, digits, - _ /), not inside code and not Markdown headings. */
 const TAG_RE = /(?:^|[\s(])#([\p{L}\p{N}][\p{L}\p{N}_/-]*)/gu
@@ -184,4 +184,83 @@ export function noteMarkdown(n: Note, untitled: string): string {
     ''
   ]
   return front.join('\n') + n.body.replace(/\s*$/, '\n')
+}
+
+// ---------- folders ----------
+
+export interface FolderNode {
+  folder: NoteFolder
+  depth: number
+  /** Active notes in this folder and all sub-folders */
+  count: number
+  children: FolderNode[]
+}
+
+const byName = (a: NoteFolder, b: NoteFolder): number => a.name.localeCompare(b.name, 'tr', { sensitivity: 'base' })
+
+/** Folder tree sorted by name, with note counts that include sub-folders. */
+export function folderTree(folders: NoteFolder[], notes: Note[]): FolderNode[] {
+  const direct = new Map<string, number>()
+  for (const n of notes) if (!n.deletedAt && n.folderId) direct.set(n.folderId, (direct.get(n.folderId) ?? 0) + 1)
+  const build = (parentId: string | null, depth: number): FolderNode[] =>
+    folders
+      .filter((f) => f.parentId === parentId)
+      .sort(byName)
+      .map((folder) => {
+        const children = build(folder.id, depth + 1)
+        const count = (direct.get(folder.id) ?? 0) + children.reduce((s, c) => s + c.count, 0)
+        return { folder, depth, count, children }
+      })
+  return build(null, 0)
+}
+
+/** The folder and all folders below it. */
+export function folderAndDescendants(folders: NoteFolder[], id: string): Set<string> {
+  const out = new Set([id])
+  for (let grew = true; grew; ) {
+    grew = false
+    for (const f of folders) {
+      if (f.parentId && out.has(f.parentId) && !out.has(f.id)) {
+        out.add(f.id)
+        grew = true
+      }
+    }
+  }
+  return out
+}
+
+/** Folder names from the top down to the folder, e.g. ["English", "Grammar"]. */
+export function folderPath(folders: NoteFolder[], id: string | null): NoteFolder[] {
+  const byId = new Map(folders.map((f) => [f.id, f]))
+  const out: NoteFolder[] = []
+  for (let f = id ? byId.get(id) : undefined; f && out.length < 50; f = f.parentId ? byId.get(f.parentId) : undefined) out.unshift(f)
+  return out
+}
+
+/** Whether `folderId` can move under `parentId` without creating a cycle. */
+export function canMoveFolder(folders: NoteFolder[], folderId: string, parentId: string | null): boolean {
+  return parentId === null || !folderAndDescendants(folders, folderId).has(parentId)
+}
+
+/** Deletes a folder: its notes and sub-folders move up to the parent, nothing is lost. */
+export function deleteFolder(data: AppData, id: string): AppData {
+  const folder = data.noteFolders.find((f) => f.id === id)
+  if (!folder) return data
+  return {
+    ...data,
+    noteFolders: data.noteFolders.filter((f) => f.id !== id).map((f) => (f.parentId === id ? { ...f, parentId: folder.parentId } : f)),
+    notes: data.notes.map((n) => (n.folderId === id ? { ...n, folderId: folder.parentId } : n))
+  }
+}
+
+/** Safe folder name for exported files. */
+export function folderFileName(name: string): string {
+  return (
+    name
+      .replace(/[\\/:*?"<>|#^[\]\n\r\t]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 60)
+      .replace(/[. ]+$/, '') || 'Folder'
+  )
 }

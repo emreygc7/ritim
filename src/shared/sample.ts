@@ -1,5 +1,5 @@
 import { emptyData } from './normalize'
-import type { AppData, Block, Category, ChecklistItem, Lang, Note, Plan, Weekday } from './types'
+import type { AppData, Block, Category, ChecklistItem, Lang, Note, NoteFolder, Plan, Weekday } from './types'
 
 const WEEKDAYS: Weekday[] = [1, 2, 3, 4, 5]
 const EVERY_DAY: Weekday[] = [1, 2, 3, 4, 5, 6, 7]
@@ -77,7 +77,8 @@ export function sampleData(lang: Lang): AppData {
     blockIds,
     createdAt: stamp,
     updatedAt: stamp,
-    deletedAt: null
+    deletedAt: null,
+    folderId: null
   })
   const notes: Note[] = [
     note(
@@ -99,5 +100,12 @@ export function sampleData(lang: Lang): AppData {
     )
   ]
 
-  return { ...emptyData(lang), onboarded: true, categories, blocks, checklist, plans, notes }
+  const noteFolders: NoteFolder[] = [
+    { id: 'sample-folder-1', name: L('Başlarken', 'Getting started'), parentId: null },
+    { id: 'sample-folder-2', name: L('Hedefler', 'Goals'), parentId: null }
+  ]
+  notes[0].folderId = 'sample-folder-1'
+  notes[1].folderId = 'sample-folder-2'
+
+  return { ...emptyData(lang), onboarded: true, categories, blocks, checklist, plans, notes, noteFolders }
 }
